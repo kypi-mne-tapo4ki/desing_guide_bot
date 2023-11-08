@@ -4,10 +4,12 @@ import logging
 import pymongo
 
 import aiogram.utils.keyboard as keyboard
-
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters.command import Command
+
+from data import get_data
 from config_reader import config
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,6 +59,7 @@ async def main_menu(message: types.Message):
     )
 
 
+# Start Game
 @dp.message(F.text == "Старт игры")
 async def new_game(message: types.Message):
     await save_user_data(message.from_user.id, discount=0, user_answer="")
@@ -86,6 +89,7 @@ async def new_game(message: types.Message):
     )
 
 
+# First Question
 @dp.callback_query(F.data == "first_question")
 async def first_question_handle(callback_query: types.CallbackQuery):
     # Hide inline button from previous message
@@ -117,6 +121,7 @@ async def first_question_handle(callback_query: types.CallbackQuery):
     )
 
 
+# First Answer
 @dp.callback_query(F.data == "first_answer")
 async def first_answer(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
@@ -142,6 +147,7 @@ async def first_answer(callback_query: types.CallbackQuery):
         )
 
 
+# Second Question
 @dp.callback_query(F.data == "second_question")
 async def second_question(callback_query: types.CallbackQuery):
     # Hide inline button from previous message
@@ -150,7 +156,6 @@ async def second_question(callback_query: types.CallbackQuery):
     introdution_text = (
         "🌟 Уровень 2: Как можно увеличить продажи с помощью дизайна?"
         "Бонус за прохождение уровня: скидка +10%"
-        "Теперь давайте перейдем к методам увеличения продаж с помощью графики:"
     )
 
     await callback_query.message.answer(
@@ -158,18 +163,76 @@ async def second_question(callback_query: types.CallbackQuery):
         reply_markup=cancel_button.as_markup(resize_keyboard=True),
     )
 
+    next_button = keyboard.InlineKeyboardBuilder()
+    next_button.add(
+        types.InlineKeyboardButton(text="Далее", callback_data="carousel_1")
+    )
+
+    await callback_query.message.answer(
+        text="Теперь давайте перейдем к методам увеличения продаж с помощью графики:",
+        reply_markup=next_button.as_markup(resize_keyboard=True),
+    )
+
+
+@dp.callback_query(F.data.startswith("carousel"))
+async def information_carousel(callback_query: types.CallbackQuery):
+    await hide_buttons(callback_query)
+
+    data = await get_data()
+
+    buttons_for_first = keyboard.InlineKeyboardBuilder()
+    buttons_for_first.add(
+        types.InlineKeyboardButton(text=">>>", callback_data="carousel_2")
+    )
+
+    buttons_for_middle = keyboard.InlineKeyboardBuilder()
+    buttons_for_middle.add(
+        types.InlineKeyboardButton(text="<<<", callback_data=f"carousel_{(str(int(callback_query.data[-1]) - 1))}"),
+        types.InlineKeyboardButton(text=">>>", callback_data=f"carousel_{(str(int(callback_query.data[-1]) + 1))}"),
+    )
+
+    buttons_for_last = keyboard.InlineKeyboardBuilder()
+    buttons_for_last.add(
+        types.InlineKeyboardButton(text="<<<", callback_data=f"carousel_{(str(int(callback_query.data[-1]) - 1))}"),
+        types.InlineKeyboardButton(text="Далее", callback_data="second_continue")
+    )
+
+    if callback_query.data.endswith("1"):
+        await callback_query.message.answer(
+            text=data["1"],
+            reply_markup=buttons_for_first.as_markup(reply_keyboard=True)
+        )
+
+    elif callback_query.data[-1] in [str(i) for i in range(1, 6)]:
+        await bot.edit_message_text(
+            chat_id=callback_query.message.chat.id,
+            message_id=callback_query.message.message_id,
+            text=data[callback_query.data],
+            reply_markup=buttons_for_middle.as_markup(reply_keyboard=True)
+        )
+
+    elif callback_query.data.endswith("6"):
+        await bot.edit_message_text(
+            chat_id=callback_query.message.chat.id,
+            message_id=callback_query.message.id,
+            text=data[callback_query.data],
+            reply_markup=buttons_for_last.as_markup(reply_keyboard=True)
+        )
+
+
+@dp.callback_query(F.data == "second_continue")
+async def second_part_continue(callback_query: types.CallbackQuery):
+    await hide_buttons(callback_query=callback_query)
+    await callback_query.message.answer(text="Получилось")
+
 
 @dp.callback_query(F.data.startswith("skip_to"))
 async def skip_answer(callback_query: types.CallbackQuery):
-    questions_dict = {
-        "2": "second_question",
-        "3": "third_question"
-    }
+    questions_dict = {"2": "second_question", "3": "third_question"}
     question_number = callback_query.data[-1]
     func = globals()[questions_dict[question_number]]
     await callback_query.message.answer(text="Ах как жаль :( \n")
     await func(callback_query)
-
 
 
 @dp.message(F.text == "Отмена игры")
