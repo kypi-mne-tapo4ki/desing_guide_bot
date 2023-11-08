@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 import pymongo
 
@@ -7,9 +8,8 @@ import aiogram.utils.keyboard as keyboard
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters.command import Command
 
-from data import get_data
+import data as d
 from config_reader import config
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -21,6 +21,43 @@ dp = Dispatcher()
 client = pymongo.MongoClient(host=config.db_host.get_secret_value())
 database = client[config.db_name.get_secret_value()]
 collection = database[config.collection_name.get_secret_value()]
+
+
+async def first_page_keyboard(level: str):
+    buttons = keyboard.InlineKeyboardBuilder()
+    buttons.add(
+        types.InlineKeyboardButton(text=">>>", callback_data=f"{level}_carousel_2")
+    )
+    return buttons
+
+
+async def middle_pages_keyboard(callback_query: types.CallbackQuery, level: str):
+    buttons = keyboard.InlineKeyboardBuilder()
+    buttons.add(
+        types.InlineKeyboardButton(text="<<<",
+                                   callback_data=f"{level}_carousel_{(str(int(callback_query.data[-1]) - 1))}"),
+        types.InlineKeyboardButton(text=">>>",
+                                   callback_data=f"{level}_carousel_{(str(int(callback_query.data[-1]) + 1))}"),
+    )
+    return buttons
+
+
+async def last_page_keyboard(callback_query: types.CallbackQuery, level: str):
+    buttons = keyboard.InlineKeyboardBuilder()
+    buttons.add(
+        types.InlineKeyboardButton(text="<<<",
+                                   callback_data=f"{level}_carousel_{(str(int(callback_query.data[-1]) - 1))}"),
+        types.InlineKeyboardButton(text="Далее", callback_data=f"{level}_continue")
+    )
+    return buttons
+
+
+async def to_carousel_keyboard(level: str):
+    button = keyboard.InlineKeyboardBuilder()
+    button.add(
+        types.InlineKeyboardButton(text="Далее", callback_data=f"{level}_carousel_1")
+    )
+    return button
 
 
 @dp.message(Command("start"))
@@ -46,16 +83,16 @@ async def main_menu(message: types.Message):
     text = "Чтобы получить бонус, нажмите 'Старт игры'"
     if user_data["discount"] != 0:
         text = (
-            "Похоже вы уже играли ранее. Если начать новую игры ваши заработанные баллы сгорят. "
-            "Хотите попробовать снова?\n"
-        ) + text
+                   "Похоже вы уже играли ранее. Если начать новую игры ваши заработанные баллы сгорят. "
+                   "Хотите попробовать снова?\n"
+               ) + text
 
-    builder = keyboard.ReplyKeyboardBuilder()
-    builder.add(types.KeyboardButton(text="Старт игры"))
+    start_button = keyboard.ReplyKeyboardBuilder()
+    start_button.add(types.KeyboardButton(text="Старт игры"))
 
     await message.answer(
         text=text,
-        reply_markup=builder.as_markup(resize_keyboard=True),
+        reply_markup=start_button.as_markup(resize_keyboard=True),
     )
 
 
@@ -64,35 +101,75 @@ async def main_menu(message: types.Message):
 async def new_game(message: types.Message):
     await save_user_data(message.from_user.id, discount=0, user_answer="")
 
-    await message.answer(
-        text="💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка 10%",
-        reply_markup=cancel_button.as_markup(resize_keyboard=True),
-    )
-
     next_button = keyboard.InlineKeyboardBuilder()
     next_button.add(
-        types.InlineKeyboardButton(text="Далее", callback_data="first_question")
-    )
-
-    introduction_text = (
-        "Перед тем как перейти к первому вопросу, давайте разберемся, почему графический дизайн так важен:"
-        "\n👁️ Привлекательность: Привлекательный дизайн делает ваш продукт или услугу более заметными и привлекательными"
-        "для потенциальных клиентов. Это первое, что они видят."
-        "\n🧠 Понимание: Графика помогает объяснить, как работает ваш продукт и какие преимущества он предоставляет."
-        "Это помогает клиентам понять, как ваш продукт решает их проблемы."
-        "\n🤝 Доверие: Профессиональный дизайн создает впечатление надежности и качества. Это может помочь убедить "
-        "клиентов, что они делают правильный выбор."
+        types.InlineKeyboardButton(text="Далее", callback_data="first_level")
     )
 
     await message.answer(
-        text=introduction_text, reply_markup=next_button.as_markup(resize_keybord=True)
+        text="Желаю удачи!",
+        reply_markup=next_button.as_markup(resize_keyboard=True)
     )
 
 
-# First Question
-@dp.callback_query(F.data == "first_question")
-async def first_question_handle(callback_query: types.CallbackQuery):
+# First Level
+@dp.callback_query(F.data == "first_level")
+async def first_level_intro(callback_query: types.CallbackQuery):
     # Hide inline button from previous message
+    await hide_buttons(callback_query=callback_query)
+
+    next_button = await to_carousel_keyboard(level="first_level")
+
+    text = ("💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка 10%"
+            " Перед тем как перейти к первому вопросу, давайте разберемся, почему графический дизайн так важен:"
+            )
+    await callback_query.message.answer(text=text)
+
+    time.sleep(2)
+
+    await callback_query.message.answer(
+        text="Нажмите Далее",
+        reply_markup=next_button.as_markup(resize_keyboard=True)
+    )
+
+
+@dp.callback_query(F.data.startswith("first_level_carousel"))
+async def first_level_carousel(callback_query: types.CallbackQuery):
+    # Hide inline button from previous message
+    await hide_buttons(callback_query=callback_query)
+
+    data = await d.get_first_level_data()
+    level = callback_query.data[:callback_query.data.find("level") + 5]
+    carousel_number = callback_query.data[-1]
+    middle_list = [str(i) for i in range(2, 3)]
+
+    if carousel_number == "1":
+        page_keyboard = await first_page_keyboard(level=level)
+        await edit_carousel_message(
+            callback_query=callback_query,
+            page_keyboard=page_keyboard,
+            page_text=data[carousel_number]
+        )
+
+    elif carousel_number in middle_list:
+        page_keyboard = await middle_pages_keyboard(callback_query=callback_query, level=level)
+        await edit_carousel_message(
+            callback_query=callback_query,
+            page_keyboard=page_keyboard,
+            page_text=data[carousel_number]
+        )
+
+    elif carousel_number == str(len(data)):
+        page_keyboard = await last_page_keyboard(callback_query=callback_query, level=level)
+        await edit_carousel_message(
+            callback_query=callback_query,
+            page_keyboard=page_keyboard,
+            page_text=data[carousel_number]
+        )
+
+
+@dp.callback_query(F.data == "first_level_continue")
+async def first_level_continue(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
     await callback_query.message.answer(
@@ -102,7 +179,7 @@ async def first_question_handle(callback_query: types.CallbackQuery):
 
     first_question_buttons = keyboard.InlineKeyboardBuilder()
     first_question_buttons.add(
-        types.InlineKeyboardButton(text="Ответить", callback_data="first_answer")
+        types.InlineKeyboardButton(text="Ответить", callback_data="first_level_task")
     )
     first_question_buttons.add(
         types.InlineKeyboardButton(
@@ -110,21 +187,22 @@ async def first_question_handle(callback_query: types.CallbackQuery):
         )
     )
 
-    question_one_text = (
+    first_question_text = (
         "🤔Вопрос: А что делает ваш продукт или услугу более заметными и привлекательными"
         " для потенциальных клиентов?"
     )
 
     await callback_query.message.answer(
-        text=question_one_text,
+        text=first_question_text,
         reply_markup=first_question_buttons.as_markup(resize_keyboard=True),
     )
 
 
 # First Answer
-@dp.callback_query(F.data == "first_answer")
+@dp.callback_query(F.data == "first_level_task")
 async def first_answer(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
+
     await callback_query.message.answer("Напишите свой ответ")
 
     @dp.message(F.text)
@@ -135,7 +213,7 @@ async def first_answer(callback_query: types.CallbackQuery):
 
         next_button = keyboard.InlineKeyboardBuilder()
         next_button.add(
-            types.InlineKeyboardButton(text="Далее", callback_data="second_question")
+            types.InlineKeyboardButton(text="Далее", callback_data="second_level_intro")
         )
 
         text = (
@@ -148,8 +226,8 @@ async def first_answer(callback_query: types.CallbackQuery):
 
 
 # Second Question
-@dp.callback_query(F.data == "second_question")
-async def second_question(callback_query: types.CallbackQuery):
+@dp.callback_query(F.data == "second_level_intro")
+async def second_level_intro(callback_query: types.CallbackQuery):
     # Hide inline button from previous message
     await hide_buttons(callback_query=callback_query)
 
@@ -163,10 +241,7 @@ async def second_question(callback_query: types.CallbackQuery):
         reply_markup=cancel_button.as_markup(resize_keyboard=True),
     )
 
-    next_button = keyboard.InlineKeyboardBuilder()
-    next_button.add(
-        types.InlineKeyboardButton(text="Далее", callback_data="carousel_1")
-    )
+    next_button = await to_carousel_keyboard(level="second_level")
 
     await callback_query.message.answer(
         text="Теперь давайте перейдем к методам увеличения продаж с помощью графики:",
@@ -174,61 +249,99 @@ async def second_question(callback_query: types.CallbackQuery):
     )
 
 
-@dp.callback_query(F.data.startswith("carousel"))
-async def information_carousel(callback_query: types.CallbackQuery):
+@dp.callback_query(F.data.startswith("second_level_carousel"))
+async def second_part_carousel(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query)
 
-    data = await get_data()
+    data = await d.get_second_level_data()
+    level = callback_query.data[:callback_query.data.find("level") + 5]
+    carousel_number = callback_query.data[-1]
+    middle_list = [str(i) for i in range(2, 6)]
 
-    buttons_for_first = keyboard.InlineKeyboardBuilder()
-    buttons_for_first.add(
-        types.InlineKeyboardButton(text=">>>", callback_data="carousel_2")
-    )
+    await callback_query.answer(text=" ")
 
-    buttons_for_middle = keyboard.InlineKeyboardBuilder()
-    buttons_for_middle.add(
-        types.InlineKeyboardButton(text="<<<", callback_data=f"carousel_{(str(int(callback_query.data[-1]) - 1))}"),
-        types.InlineKeyboardButton(text=">>>", callback_data=f"carousel_{(str(int(callback_query.data[-1]) + 1))}"),
-    )
-
-    buttons_for_last = keyboard.InlineKeyboardBuilder()
-    buttons_for_last.add(
-        types.InlineKeyboardButton(text="<<<", callback_data=f"carousel_{(str(int(callback_query.data[-1]) - 1))}"),
-        types.InlineKeyboardButton(text="Далее", callback_data="second_continue")
-    )
-
-    if callback_query.data.endswith("1"):
-        await callback_query.message.answer(
-            text=data["1"],
-            reply_markup=buttons_for_first.as_markup(reply_keyboard=True)
+    # if carousel_number == "1":
+    #     await bot.edit_message_text(
+    #         chat_id=callback_query.message.chat.id,
+    #         message_id=callback_query.message.message_id,
+    #         text=data[carousel_number],
+    #         reply_markup=buttons_for_first.as_markup(reply_keyboard=True)
+    #     )
+    #
+    # elif carousel_number in middle_list:
+    #     await bot.edit_message_text(
+    #         chat_id=callback_query.message.chat.id,
+    #         message_id=callback_query.message.message_id,
+    #         text=data[carousel_number],
+    #         reply_markup=buttons_for_middle.as_markup(reply_keyboard=True)
+    #     )
+    #
+    # elif carousel_number == "6":
+    #     await bot.edit_message_text(
+    #         chat_id=callback_query.message.chat.id,
+    #         message_id=callback_query.message.message_id,
+    #         text=data[carousel_number],
+    #         reply_markup=buttons_for_last.as_markup(reply_keyboard=True)
+    #     )
+    if carousel_number == "1":
+        page_keyboard = await first_page_keyboard(level=level)
+        await edit_carousel_message(
+            callback_query=callback_query,
+            page_keyboard=page_keyboard,
+            page_text=data[carousel_number]
         )
 
-    elif callback_query.data[-1] in [str(i) for i in range(1, 6)]:
-        await bot.edit_message_text(
-            chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.message_id,
-            text=data[callback_query.data],
-            reply_markup=buttons_for_middle.as_markup(reply_keyboard=True)
+    elif carousel_number in middle_list:
+        page_keyboard = await middle_pages_keyboard(callback_query=callback_query, level=level)
+        await edit_carousel_message(
+            callback_query=callback_query,
+            page_keyboard=page_keyboard,
+            page_text=data[carousel_number]
         )
 
-    elif callback_query.data.endswith("6"):
-        await bot.edit_message_text(
-            chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.id,
-            text=data[callback_query.data],
-            reply_markup=buttons_for_last.as_markup(reply_keyboard=True)
+    elif carousel_number == str(len(data)):
+        page_keyboard = await last_page_keyboard(callback_query=callback_query, level=level)
+        await edit_carousel_message(
+            callback_query=callback_query,
+            page_keyboard=page_keyboard,
+            page_text=data[carousel_number]
         )
 
 
-@dp.callback_query(F.data == "second_continue")
-async def second_part_continue(callback_query: types.CallbackQuery):
+@dp.callback_query(F.data == "second_level_continue")
+async def second_level_continue(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
-    await callback_query.message.answer(text="Получилось")
+
+    buttons = keyboard.InlineKeyboardBuilder()
+    buttons.add(
+        types.InlineKeyboardButton(text="Получить задание", callback_data="second_level_task"),
+        types.InlineKeyboardButton(text="Продолжить без бонусов", callback_data="skip_to_3")
+    )
+
+    text = "Перед тем как идти дальше, давайте закрепим информацию на примерах."
+    await callback_query.message.answer(
+        text=text,
+        reply_markup=buttons.as_markup(resize_keyboard=True)
+    )
+
+
+@dp.callback_query(F.data == "second_level_task")
+async def second_task(callback_query: types.CallbackQuery):
+    await hide_buttons(callback_query=callback_query)
+
+    await callback_query.message.answer("Мы здесь")
+
+
+@dp.callback_query(F.data == "third_level_intro")
+async def third_level_intro(callback_query: types.CallbackQuery):
+    await hide_buttons(callback_query=callback_query)
+
+    await callback_query.message.answer("Перешли на третий уровень")
 
 
 @dp.callback_query(F.data.startswith("skip_to"))
 async def skip_answer(callback_query: types.CallbackQuery):
-    questions_dict = {"2": "second_question", "3": "third_question"}
+    questions_dict = {"2": "second_level_intro", "3": "third_level_intro"}
     question_number = callback_query.data[-1]
     func = globals()[questions_dict[question_number]]
     await callback_query.message.answer(text="Ах как жаль :( \n")
@@ -267,6 +380,19 @@ async def hide_buttons(callback_query: types.CallbackQuery):
         message_id=callback_query.message.message_id,
         text=callback_query.message.text,
         reply_markup=None,  # Hide keyboard
+    )
+
+
+async def edit_carousel_message(
+        callback_query: types.CallbackQuery,
+        page_keyboard: keyboard.InlineKeyboardBuilder,
+        page_text: str,
+):
+    await bot.edit_message_text(
+        chat_id=callback_query.message.chat.id,
+        message_id=callback_query.message.message_id,
+        text=page_text,
+        reply_markup=page_keyboard.as_markup(resize_keyboard=True)
     )
 
 
