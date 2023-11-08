@@ -1,11 +1,8 @@
 import asyncio
 import logging
-import time
-from typing import Union
 
 import pymongo
 
-# from aiogram.utils.callback_answer import CallbackAnswerMiddleware
 import aiogram.utils.keyboard as keyboard
 
 from aiogram import Bot, Dispatcher, F, types
@@ -92,12 +89,7 @@ async def new_game(message: types.Message):
 @dp.callback_query(F.data == "first_question")
 async def first_question_handle(callback_query: types.CallbackQuery):
     # Hide inline button from previous message
-    await bot.edit_message_text(
-        chat_id=callback_query.message.chat.id,
-        message_id=callback_query.message.message_id,
-        text=callback_query.message.text,
-        reply_markup=None,  # Hide keyboard
-    )
+    await hide_buttons(callback_query=callback_query)
 
     await callback_query.message.answer(
         text="Для получения бонуса, ответьте на вопрос:",
@@ -110,7 +102,7 @@ async def first_question_handle(callback_query: types.CallbackQuery):
     )
     first_question_buttons.add(
         types.InlineKeyboardButton(
-            text="Продолжить без бонуса", callback_data="cancel_answer"
+            text="Продолжить без бонуса", callback_data="skip_to_2"
         )
     )
 
@@ -127,11 +119,11 @@ async def first_question_handle(callback_query: types.CallbackQuery):
 
 @dp.callback_query(F.data == "first_answer")
 async def first_answer(callback_query: types.CallbackQuery):
+    await hide_buttons(callback_query=callback_query)
     await callback_query.message.answer("Напишите свой ответ")
 
     @dp.message(F.text)
     async def get_answer(message: types.Message):
-        print(message.text)
         await save_user_data(
             user_id=message.from_user.id, discount=10, user_answer=message.text
         )
@@ -153,12 +145,7 @@ async def first_answer(callback_query: types.CallbackQuery):
 @dp.callback_query(F.data == "second_question")
 async def second_question(callback_query: types.CallbackQuery):
     # Hide inline button from previous message
-    await bot.edit_message_text(
-        chat_id=callback_query.message.chat.id,
-        message_id=callback_query.message.message_id,
-        text=callback_query.message.text,
-        reply_markup=None,  # Hide keyboard
-    )
+    await hide_buttons(callback_query=callback_query)
 
     introdution_text = (
         "🌟 Уровень 2: Как можно увеличить продажи с помощью дизайна?"
@@ -170,6 +157,19 @@ async def second_question(callback_query: types.CallbackQuery):
         text=introdution_text,
         reply_markup=cancel_button.as_markup(resize_keyboard=True),
     )
+
+
+@dp.callback_query(F.data.startswith("skip_to"))
+async def skip_answer(callback_query: types.CallbackQuery):
+    questions_dict = {
+        "2": "second_question",
+        "3": "third_question"
+    }
+    question_number = callback_query.data[-1]
+    func = globals()[questions_dict[question_number]]
+    await callback_query.message.answer(text="Ах как жаль :( \n")
+    await func(callback_query)
+
 
 
 @dp.message(F.text == "Отмена игры")
@@ -196,6 +196,15 @@ async def get_user_data(user_id):
         return {"discount": discount, "user_answer": user_answer}
     else:
         return {"discount": 0, "user_answer": ""}
+
+
+async def hide_buttons(callback_query: types.CallbackQuery):
+    await bot.edit_message_text(
+        chat_id=callback_query.message.chat.id,
+        message_id=callback_query.message.message_id,
+        text=callback_query.message.text,
+        reply_markup=None,  # Hide keyboard
+    )
 
 
 async def main():
