@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 
 import pymongo
 
@@ -7,6 +8,7 @@ import aiogram.utils.keyboard as keyboard
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters.command import Command
 
+import data
 from data import get_first_level_data, get_second_level_data
 from config_reader import config
 from keyboards import (
@@ -23,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=config.bot_token.get_secret_value())
 dp = Dispatcher()
 
-# DB Connection
+# DB connection
 client = pymongo.MongoClient(host=config.db_host.get_secret_value())
 database = client[config.db_name.get_secret_value()]
 collection = database[config.collection_name.get_secret_value()]
@@ -40,7 +42,6 @@ async def cmd_start(message: types.Message):
 
     await message.answer(text=welcome_text, parse_mode="HTML")
     await main_menu(message)
-
 
 
 async def main_menu(message: types.Message):
@@ -62,9 +63,10 @@ async def main_menu(message: types.Message):
     )
 
 
-# Start Game
+# Start game
 @dp.message(F.text == "Старт игры")
 async def new_game(message: types.Message):
+    # Init and clear user data
     await save_user_data(message.from_user.id, discount=0, user_answer="")
 
     next_button = keyboard.InlineKeyboardBuilder()
@@ -78,7 +80,7 @@ async def new_game(message: types.Message):
     )
 
 
-# First Level
+# First level
 @dp.callback_query(F.data == "first_level")
 async def first_level_intro(callback_query: types.CallbackQuery):
     # Hide inline button from previous message
@@ -101,6 +103,7 @@ async def first_level_intro(callback_query: types.CallbackQuery):
     )
 
 
+# First level information carousel
 @dp.callback_query(F.data.startswith("first_level_carousel"))
 async def first_level_carousel(callback_query: types.CallbackQuery):
     level = callback_query.data[:callback_query.data.find("level") + 5]
@@ -108,6 +111,7 @@ async def first_level_carousel(callback_query: types.CallbackQuery):
     await carousel_render(callback_query=callback_query, level=level)
 
 
+# First level continue
 @dp.callback_query(F.data == "first_level_continue")
 async def first_level_continue(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
@@ -139,9 +143,9 @@ async def first_level_continue(callback_query: types.CallbackQuery):
     )
 
 
-# First Answer
+# First level task
 @dp.callback_query(F.data == "first_level_task")
-async def first_answer(callback_query: types.CallbackQuery):
+async def first_answer_handler(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
     await callback_query.message.answer("Напишите свой ответ")
@@ -166,7 +170,7 @@ async def first_answer(callback_query: types.CallbackQuery):
         )
 
 
-# Second Question
+# Second level
 @dp.callback_query(F.data == "second_level_intro")
 async def second_level_intro(callback_query: types.CallbackQuery):
     # Hide inline button from previous message
@@ -174,7 +178,7 @@ async def second_level_intro(callback_query: types.CallbackQuery):
 
     introdution_text = (
         "🌟 Уровень 2: Как можно увеличить продажи с помощью дизайна?"
-        "Бонус за прохождение уровня: скидка +10%"
+        "Бонус за прохождение уровня: скидка +10% или +20%"
     )
 
     cancel_game_button = await cancel_game_keyboard()
@@ -191,6 +195,7 @@ async def second_level_intro(callback_query: types.CallbackQuery):
     )
 
 
+# Second level information carousel
 @dp.callback_query(F.data.startswith("second_level_carousel"))
 async def second_level_carousel(callback_query: types.CallbackQuery):
     level = callback_query.data[:callback_query.data.find("level") + 5]
@@ -198,6 +203,7 @@ async def second_level_carousel(callback_query: types.CallbackQuery):
     await carousel_render(callback_query=callback_query, level=level)
 
 
+# Second level continue
 @dp.callback_query(F.data == "second_level_continue")
 async def second_level_continue(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
@@ -215,13 +221,129 @@ async def second_level_continue(callback_query: types.CallbackQuery):
     )
 
 
+# Second level task
 @dp.callback_query(F.data == "second_level_task")
-async def second_task(callback_query: types.CallbackQuery):
+async def second_level_task_info(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
-    await callback_query.message.answer("Мы здесь")
+    task_text = "Задание: Сопоставьте бренд и его описание"
+
+    origin_results = await data.get_second_level_answers()
+    user_results = {}
+    button = keyboard.InlineKeyboardBuilder()
+    button.add(types.InlineKeyboardButton(text="Вперед", callback_data="answer_"))
+
+    await callback_query.message.answer(
+        text=task_text,
+        reply_markup=button.as_markup(reply_keyboard=True)
+    )
+
+    @dp.callback_query(F.data.startswith("answer_"))
+    async def second_level_answers(callback_query_a: types.CallbackQuery):
+
+        current_answer: str = ""
+
+        try:
+            current_answer = callback_query_a.data.split("_")[1]
+            origin_results.pop(current_answer)
+        except (KeyError, IndexError):
+            pass
+
+        if current_answer != "":
+            user_results.update({current_answer: callback_query_a.message.text})
+
+            await bot.edit_message_text(
+                chat_id=callback_query_a.message.chat.id,
+                message_id=callback_query_a.message.message_id,
+                text=callback_query_a.message.text + f"\nВаш ответ: {current_answer}"
+            )
+        else:
+            await hide_buttons(callback_query=callback_query_a)
+
+        if len(origin_results) == 0:
+            await hide_buttons(callback_query=callback_query_a)
+            await second_level_check_result(
+                callback_query=callback_query_a,
+                user_results=user_results
+            )
+
+        answers_keyboard = keyboard.InlineKeyboardBuilder()
+        for key in origin_results.keys():
+            answers_keyboard.add(types.InlineKeyboardButton(text=key, callback_data=f"answer_{key}"))
+        answers_keyboard.adjust(2)
+
+        answer, text = random.sample(origin_results.items(), 1)[0]
+
+        await callback_query_a.message.answer(
+            text=text,
+            reply_markup=answers_keyboard.as_markup(resize_keyboard=True)
+        )
 
 
+# Second level result checking
+async def second_level_check_result(callback_query: types.CallbackQuery, user_results: dict):
+    origin_results = await data.get_second_level_answers()
+    if user_results == origin_results:
+        user_data = await get_user_data(callback_query.message.from_user.id)
+        user_data["discount"] = user_data.get("discount", 0) + 10
+        await save_user_data(**user_data)
+
+        text="Поздравляю! Ты ответил правильно, держи 10% скидки 🥳. Ты можешь получить еще 10% если ответишь на бонусный вопрос"
+        buttons = keyboard.InlineKeyboardBuilder()
+        buttons.add(
+            types.InlineKeyboardButton(text="Получить бонус", callback_data="bonus_task"),
+            types.InlineKeyboardButton(text="Продолжить без бонуса", callback_data="skip_to_3"),
+        )
+
+        await callback_query.message.answer(
+            text=text,
+            reply_markup=buttons.as_markup(resize_keyboard=True)
+        )
+    else:
+        buttons = keyboard.InlineKeyboardBuilder()
+        buttons.add(
+            types.InlineKeyboardButton(text="Попробовать снова", callback_data="second_level_task"),
+            types.InlineKeyboardButton(text="Получить бонус", callback_data="bonus_task"),
+            types.InlineKeyboardButton(text="Продолжить без бонуса", callback_data="skip_to_3"),
+        )
+        buttons.adjust(1)
+
+        text = ("Извини, но ты ответил неверно. Ты можешь попробовать пройти задание снова, либо получить "
+                "10% скидку ответив на бонусный вопрос или продолжить без бонусов. Выбирай:")
+
+        await callback_query.message.answer(
+            text=text,
+            reply_markup=buttons.as_markup(resize_keyboard=True)
+        )
+
+
+# Second level bonus task
+@dp.callback_query(F.data == "bonus_task")
+async def bonus_task(callback_query: types.CallbackQuery):
+    await hide_buttons(callback_query=callback_query)
+
+    text = "Бонусное задание - напишите, какие плюсы и минусы вы заметили у своей компании?"
+    await callback_query.message.answer(text=text)
+
+    @dp.message(F.text)
+    async def get_answer(message: types.Message):
+        await update_user_discount(message.from_user.id)
+
+        next_button = keyboard.InlineKeyboardBuilder()
+        next_button.add(
+            types.InlineKeyboardButton(text="Далее", callback_data="third_level_intro")
+        )
+
+        text = (
+            "🎮 Отлично! Ваши знания о графическом дизайне и его влиянии на бизнес продолжают расти. "
+            "Готовы к следующему вызову?"
+        )
+        await message.answer(
+            text=text, reply_markup=next_button.as_markup(resize_keyboard=True)
+        )
+
+
+# Third level
 @dp.callback_query(F.data == "third_level_intro")
 async def third_level_intro(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
@@ -261,9 +383,15 @@ async def get_user_data(user_id):
     if user_data:
         discount = user_data.get("discount", 0)
         user_answer = user_data.get("user_answer", "")
-        return {"discount": discount, "user_answer": user_answer}
+        return {"discount": discount, "user_answer": user_answer, "user_id": user_id}
     else:
-        return {"discount": 0, "user_answer": ""}
+        return {"discount": 0, "user_answer": "", "user_id": user_id}
+
+
+async def update_user_discount(user_id):
+    user_data = await get_user_data(user_id)
+    user_data["discount"] = user_data.get("discount", 0) + 10
+    await save_user_data(**user_data)
 
 
 # This function draws a carousel for a given level
