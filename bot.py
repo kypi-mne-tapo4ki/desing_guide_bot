@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 
 import pymongo
 
@@ -8,8 +7,15 @@ import aiogram.utils.keyboard as keyboard
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters.command import Command
 
-import data as d
+from data import get_first_level_data, get_second_level_data
 from config_reader import config
+from keyboards import (
+    first_page_keyboard,
+    middle_pages_keyboard,
+    last_page_keyboard,
+    to_carousel_keyboard,
+    cancel_game_keyboard
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -21,43 +27,6 @@ dp = Dispatcher()
 client = pymongo.MongoClient(host=config.db_host.get_secret_value())
 database = client[config.db_name.get_secret_value()]
 collection = database[config.collection_name.get_secret_value()]
-
-
-async def first_page_keyboard(level: str):
-    buttons = keyboard.InlineKeyboardBuilder()
-    buttons.add(
-        types.InlineKeyboardButton(text=">>>", callback_data=f"{level}_carousel_2")
-    )
-    return buttons
-
-
-async def middle_pages_keyboard(callback_query: types.CallbackQuery, level: str):
-    buttons = keyboard.InlineKeyboardBuilder()
-    buttons.add(
-        types.InlineKeyboardButton(text="<<<",
-                                   callback_data=f"{level}_carousel_{(str(int(callback_query.data[-1]) - 1))}"),
-        types.InlineKeyboardButton(text=">>>",
-                                   callback_data=f"{level}_carousel_{(str(int(callback_query.data[-1]) + 1))}"),
-    )
-    return buttons
-
-
-async def last_page_keyboard(callback_query: types.CallbackQuery, level: str):
-    buttons = keyboard.InlineKeyboardBuilder()
-    buttons.add(
-        types.InlineKeyboardButton(text="<<<",
-                                   callback_data=f"{level}_carousel_{(str(int(callback_query.data[-1]) - 1))}"),
-        types.InlineKeyboardButton(text="Далее", callback_data=f"{level}_continue")
-    )
-    return buttons
-
-
-async def to_carousel_keyboard(level: str):
-    button = keyboard.InlineKeyboardBuilder()
-    button.add(
-        types.InlineKeyboardButton(text="Далее", callback_data=f"{level}_carousel_1")
-    )
-    return button
 
 
 @dp.message(Command("start"))
@@ -72,9 +41,6 @@ async def cmd_start(message: types.Message):
     await message.answer(text=welcome_text, parse_mode="HTML")
     await main_menu(message)
 
-
-cancel_button = keyboard.ReplyKeyboardBuilder()
-cancel_button.add(types.KeyboardButton(text="Отмена игры"))
 
 
 async def main_menu(message: types.Message):
@@ -120,61 +86,36 @@ async def first_level_intro(callback_query: types.CallbackQuery):
 
     next_button = await to_carousel_keyboard(level="first_level")
 
-    text = ("💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка 10%"
-            " Перед тем как перейти к первому вопросу, давайте разберемся, почему графический дизайн так важен:"
-            )
-    await callback_query.message.answer(text=text)
-
-    time.sleep(2)
+    level_text = "💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка 10%"
+    cancel_game_button = await cancel_game_keyboard()
 
     await callback_query.message.answer(
-        text="Нажмите Далее",
-        reply_markup=next_button.as_markup(resize_keyboard=True)
+        text=level_text,
+        reply_markup=cancel_game_button.as_markup(resize_keyboard=True)
+    )
+
+    next_text = " Перед тем как перейти к первому вопросу, давайте разберемся, почему графический дизайн так важен:"
+    await callback_query.message.answer(
+        text=next_text,
+        reply_markup=next_button.as_markup(resize_keyboard=True),
     )
 
 
 @dp.callback_query(F.data.startswith("first_level_carousel"))
 async def first_level_carousel(callback_query: types.CallbackQuery):
-    # Hide inline button from previous message
-    await hide_buttons(callback_query=callback_query)
-
-    data = await d.get_first_level_data()
     level = callback_query.data[:callback_query.data.find("level") + 5]
-    carousel_number = callback_query.data[-1]
-    middle_list = [str(i) for i in range(2, 3)]
 
-    if carousel_number == "1":
-        page_keyboard = await first_page_keyboard(level=level)
-        await edit_carousel_message(
-            callback_query=callback_query,
-            page_keyboard=page_keyboard,
-            page_text=data[carousel_number]
-        )
-
-    elif carousel_number in middle_list:
-        page_keyboard = await middle_pages_keyboard(callback_query=callback_query, level=level)
-        await edit_carousel_message(
-            callback_query=callback_query,
-            page_keyboard=page_keyboard,
-            page_text=data[carousel_number]
-        )
-
-    elif carousel_number == str(len(data)):
-        page_keyboard = await last_page_keyboard(callback_query=callback_query, level=level)
-        await edit_carousel_message(
-            callback_query=callback_query,
-            page_keyboard=page_keyboard,
-            page_text=data[carousel_number]
-        )
+    await carousel_render(callback_query=callback_query, level=level)
 
 
 @dp.callback_query(F.data == "first_level_continue")
 async def first_level_continue(callback_query: types.CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
+    cancel_game_button = await cancel_game_keyboard()
     await callback_query.message.answer(
         text="Для получения бонуса, ответьте на вопрос:",
-        reply_markup=cancel_button.as_markup(resize_keyboard=True),
+        reply_markup=cancel_game_button.as_markup(resize_keyboard=True),
     )
 
     first_question_buttons = keyboard.InlineKeyboardBuilder()
@@ -236,9 +177,10 @@ async def second_level_intro(callback_query: types.CallbackQuery):
         "Бонус за прохождение уровня: скидка +10%"
     )
 
+    cancel_game_button = await cancel_game_keyboard()
     await callback_query.message.answer(
         text=introdution_text,
-        reply_markup=cancel_button.as_markup(resize_keyboard=True),
+        reply_markup=cancel_game_button.as_markup(resize_keyboard=True),
     )
 
     next_button = await to_carousel_keyboard(level="second_level")
@@ -250,62 +192,10 @@ async def second_level_intro(callback_query: types.CallbackQuery):
 
 
 @dp.callback_query(F.data.startswith("second_level_carousel"))
-async def second_part_carousel(callback_query: types.CallbackQuery):
-    await hide_buttons(callback_query)
-
-    data = await d.get_second_level_data()
+async def second_level_carousel(callback_query: types.CallbackQuery):
     level = callback_query.data[:callback_query.data.find("level") + 5]
-    carousel_number = callback_query.data[-1]
-    middle_list = [str(i) for i in range(2, 6)]
 
-    await callback_query.answer(text=" ")
-
-    # if carousel_number == "1":
-    #     await bot.edit_message_text(
-    #         chat_id=callback_query.message.chat.id,
-    #         message_id=callback_query.message.message_id,
-    #         text=data[carousel_number],
-    #         reply_markup=buttons_for_first.as_markup(reply_keyboard=True)
-    #     )
-    #
-    # elif carousel_number in middle_list:
-    #     await bot.edit_message_text(
-    #         chat_id=callback_query.message.chat.id,
-    #         message_id=callback_query.message.message_id,
-    #         text=data[carousel_number],
-    #         reply_markup=buttons_for_middle.as_markup(reply_keyboard=True)
-    #     )
-    #
-    # elif carousel_number == "6":
-    #     await bot.edit_message_text(
-    #         chat_id=callback_query.message.chat.id,
-    #         message_id=callback_query.message.message_id,
-    #         text=data[carousel_number],
-    #         reply_markup=buttons_for_last.as_markup(reply_keyboard=True)
-    #     )
-    if carousel_number == "1":
-        page_keyboard = await first_page_keyboard(level=level)
-        await edit_carousel_message(
-            callback_query=callback_query,
-            page_keyboard=page_keyboard,
-            page_text=data[carousel_number]
-        )
-
-    elif carousel_number in middle_list:
-        page_keyboard = await middle_pages_keyboard(callback_query=callback_query, level=level)
-        await edit_carousel_message(
-            callback_query=callback_query,
-            page_keyboard=page_keyboard,
-            page_text=data[carousel_number]
-        )
-
-    elif carousel_number == str(len(data)):
-        page_keyboard = await last_page_keyboard(callback_query=callback_query, level=level)
-        await edit_carousel_message(
-            callback_query=callback_query,
-            page_keyboard=page_keyboard,
-            page_text=data[carousel_number]
-        )
+    await carousel_render(callback_query=callback_query, level=level)
 
 
 @dp.callback_query(F.data == "second_level_continue")
@@ -339,6 +229,7 @@ async def third_level_intro(callback_query: types.CallbackQuery):
     await callback_query.message.answer("Перешли на третий уровень")
 
 
+# Handler for Skip Button
 @dp.callback_query(F.data.startswith("skip_to"))
 async def skip_answer(callback_query: types.CallbackQuery):
     questions_dict = {"2": "second_level_intro", "3": "third_level_intro"}
@@ -348,6 +239,7 @@ async def skip_answer(callback_query: types.CallbackQuery):
     await func(callback_query)
 
 
+# Event to cancel the game
 @dp.message(F.text == "Отмена игры")
 async def handle_cancel_game(message: types.Message):
     # Завершите игру и вернитесь в основное меню
@@ -358,7 +250,7 @@ async def handle_cancel_game(message: types.Message):
     await main_menu(message)
 
 
-# Функции для сохранения и извлечения данных из базы данных
+# The following two functions are for saving and retrieving data from the database
 async def save_user_data(user_id, discount, user_answer):
     data = {"user_id": user_id, "discount": discount, "user_answer": user_answer}
     collection.update_one({"user_id": user_id}, {"$set": data}, upsert=True)
@@ -374,25 +266,74 @@ async def get_user_data(user_id):
         return {"discount": 0, "user_answer": ""}
 
 
+# This function draws a carousel for a given level
+async def carousel_render(
+        callback_query: types.CallbackQuery,
+        level: str
+):
+    # Hide inline button from previous message
+    await hide_buttons(callback_query=callback_query)
+
+    levels_data = {"first_level": "get_first_level_data", "second_level": "get_second_level_data"}
+    func = globals()[levels_data[level]]
+    data = await func()
+    carousel_number = callback_query.data[-1]
+    middle_list = [str(i) for i in range(2, len(data))]
+    message_id = callback_query.message.message_id
+
+    if callback_query.message.text not in data.values():
+        temp = await callback_query.message.answer(text="Загрузка...")
+        message_id = temp.message_id
+
+    if carousel_number == "1":
+        page_keyboard = await first_page_keyboard(level=level)
+        await edit_carousel_message(
+            callback_query=callback_query,
+            message_id=message_id,
+            page_keyboard=page_keyboard,
+            page_text=data[carousel_number]
+        )
+
+    elif carousel_number in middle_list:
+        page_keyboard = await middle_pages_keyboard(callback_query=callback_query, level=level)
+        await edit_carousel_message(
+            callback_query=callback_query,
+            message_id=message_id,
+            page_keyboard=page_keyboard,
+            page_text=data[carousel_number]
+        )
+
+    elif carousel_number == str(len(data)):
+        page_keyboard = await last_page_keyboard(callback_query=callback_query, level=level)
+        await edit_carousel_message(
+            callback_query=callback_query,
+            message_id=message_id,
+            page_keyboard=page_keyboard,
+            page_text=data[carousel_number]
+        )
+
+
+async def edit_carousel_message(
+        callback_query: types.CallbackQuery,
+        message_id: int,
+        page_keyboard: keyboard.InlineKeyboardBuilder,
+        page_text: str,
+):
+    await bot.edit_message_text(
+        chat_id=callback_query.message.chat.id,
+        message_id=message_id,
+        text=page_text,
+        reply_markup=page_keyboard.as_markup(resize_keyboard=True)
+    )
+
+
+# It`s hides previous message`s buttons
 async def hide_buttons(callback_query: types.CallbackQuery):
     await bot.edit_message_text(
         chat_id=callback_query.message.chat.id,
         message_id=callback_query.message.message_id,
         text=callback_query.message.text,
         reply_markup=None,  # Hide keyboard
-    )
-
-
-async def edit_carousel_message(
-        callback_query: types.CallbackQuery,
-        page_keyboard: keyboard.InlineKeyboardBuilder,
-        page_text: str,
-):
-    await bot.edit_message_text(
-        chat_id=callback_query.message.chat.id,
-        message_id=callback_query.message.message_id,
-        text=page_text,
-        reply_markup=page_keyboard.as_markup(resize_keyboard=True)
     )
 
 
