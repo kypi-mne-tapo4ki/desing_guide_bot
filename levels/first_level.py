@@ -13,17 +13,17 @@ first_level_router: Router = Router()
 # First level
 @first_level_router.callback_query(F.data == "first_level")
 async def first_level_intro(callback_query: CallbackQuery):
-    # Hide inline button from previous message
     await hide_buttons(callback_query=callback_query)
 
     next_button = await to_carousel_keyboard(level_num="first")
 
-    level_text = "💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка 10%"
+    level_text = (
+        "💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка 10%"
+    )
     cancel_game_button = await cancel_game_keyboard()
 
     await callback_query.message.answer(
-        text=level_text,
-        reply_markup=cancel_game_button.as_markup(resize_keyboard=True)
+        text=level_text, reply_markup=cancel_game_button.as_markup(resize_keyboard=True)
     )
 
     next_text = " Перед тем как перейти к первому вопросу, давайте разберемся, почему графический дизайн так важен:"
@@ -44,14 +44,14 @@ async def first_level_carousel(callback_query: CallbackQuery):
 async def first_level_continue(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
-    await callback_query.message.answer(text="Для получения бонуса, ответьте на вопрос:")
+    await callback_query.message.answer(
+        text="Для получения бонуса, ответьте на вопрос:"
+    )
 
     first_question_buttons = InlineKeyboardBuilder()
     first_question_buttons.add(
         InlineKeyboardButton(text="Ответить", callback_data="first_level_task"),
-        InlineKeyboardButton(
-            text="Продолжить без бонуса", callback_data="skip_to_2"
-        )
+        InlineKeyboardButton(text="Продолжить без бонуса", callback_data="skip_to_2"),
     )
     first_question_buttons.adjust(1)
 
@@ -71,12 +71,13 @@ async def first_level_continue(callback_query: CallbackQuery):
 async def first_answer_handler(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
-    text = ("Напишите свой ответ ниже начиная со слов 'Мой продукт ...' или 'Моя услуга ...'")
+    text = "Напишите свой ответ ниже начиная со слов 'Мой продукт ...' или 'Моя услуга ...'"
     await callback_query.message.answer(text=text)
 
-    @first_level_router.message(F.text.upper().startswith("МОЙ") | F.text.upper().startswith("МОЯ"))
+    @first_level_router.message(
+        F.text.upper().startswith("МОЙ") | F.text.upper().startswith("МОЯ")
+    )
     async def get_answer(message: Message):
-
         await update_user_data(user_id=message.from_user.id, utp=message.text)
         await increment_discount(user_id=message.from_user.id)
 

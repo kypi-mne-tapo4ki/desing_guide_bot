@@ -21,4 +21,3 @@ async def finish_game(message: Message):
         text="Игра завершена. Вернемся в основное меню.",
     )
     await main_menu(message)
-

@@ -17,19 +17,18 @@ async def third_level_intro(callback_query: CallbackQuery):
 
     next_button = await to_carousel_keyboard(level_num="third")
 
-    text= ("🎮 Отлично! Вы прошли второй уровень и теперь готовы к бонусному уровню, в котором познакомитесь с "
-           "нестандартным применением дизайна и технологий для увеличения продаж.")
+    text = (
+        "🎮 Отлично! Вы прошли второй уровень и теперь готовы к бонусному уровню, в котором познакомитесь с "
+        "нестандартным применением дизайна и технологий для увеличения продаж."
+    )
     await callback_query.message.answer(
-        text=text,
-        reply_markup=next_button.as_markup(resize_keyboard=True)
+        text=text, reply_markup=next_button.as_markup(resize_keyboard=True)
     )
 
 
 # Third level information carousel
 @third_level_router.callback_query(F.data.startswith("third_level_carousel"))
 async def third_level_carousel(callback_query: CallbackQuery):
-    # level = callback_query.data[:callback_query.data.find("level") + 5]
-
     await carousel_render(callback_query=callback_query, level_num="third")
 
 
@@ -41,15 +40,13 @@ async def third_level_continue(callback_query: CallbackQuery):
     buttons = InlineKeyboardBuilder()
     buttons.add(
         InlineKeyboardButton(text="Получить задание", callback_data="third_level_task"),
-        InlineKeyboardButton(text="Продолжить без бонусов", callback_data="skip_to_end")
+        InlineKeyboardButton(
+            text="Продолжить без бонусов", callback_data="skip_to_end"
+        ),
     )
 
     text = "А теперь давайте закрепим информацию."
 
     await callback_query.message.answer(
-        text=text,
-        reply_markup=buttons.as_markup(resize_keyboard=True)
+        text=text, reply_markup=buttons.as_markup(resize_keyboard=True)
     )
-
-
-

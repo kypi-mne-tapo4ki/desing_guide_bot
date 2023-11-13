@@ -7,11 +7,7 @@ from keyboards import first_page_keyboard, middle_pages_keyboard, last_page_keyb
 
 
 # This function draws a carousel for a given level
-async def carousel_render(
-        callback_query: CallbackQuery,
-        level_num: str
-):
-    # Hide inline button from previous message
+async def carousel_render(callback_query: CallbackQuery, level_num: str):
     await hide_buttons(callback_query=callback_query)
 
     levels_data = {
@@ -35,39 +31,43 @@ async def carousel_render(
             callback_query=callback_query,
             message_id=message_id,
             page_keyboard=page_keyboard,
-            page_text=data[carousel_number]
+            page_text=data[carousel_number],
         )
 
     elif carousel_number in middle_list:
-        page_keyboard = await middle_pages_keyboard(callback_query=callback_query, level_num=level_num)
+        page_keyboard = await middle_pages_keyboard(
+            callback_query=callback_query, level_num=level_num
+        )
         await edit_carousel_message(
             callback_query=callback_query,
             message_id=message_id,
             page_keyboard=page_keyboard,
-            page_text=data[carousel_number]
+            page_text=data[carousel_number],
         )
 
     elif carousel_number == str(len(data)):
-        page_keyboard = await last_page_keyboard(callback_query=callback_query, level_num=level_num)
+        page_keyboard = await last_page_keyboard(
+            callback_query=callback_query, level_num=level_num
+        )
         await edit_carousel_message(
             callback_query=callback_query,
             message_id=message_id,
             page_keyboard=page_keyboard,
-            page_text=data[carousel_number]
+            page_text=data[carousel_number],
         )
 
 
 async def edit_carousel_message(
-        callback_query: CallbackQuery,
-        message_id: int,
-        page_keyboard: InlineKeyboardBuilder,
-        page_text: str,
+    callback_query: CallbackQuery,
+    message_id: int,
+    page_keyboard: InlineKeyboardBuilder,
+    page_text: str,
 ):
     await bot.edit_message_text(
         chat_id=callback_query.message.chat.id,
         message_id=message_id,
         text=page_text,
-        reply_markup=page_keyboard.as_markup(resize_keyboard=True)
+        reply_markup=page_keyboard.as_markup(resize_keyboard=True),
     )
 
 
@@ -86,5 +86,5 @@ async def add_user_answer(callback_query: CallbackQuery, current_answer: str):
         chat_id=callback_query.message.chat.id,
         message_id=callback_query.message.message_id,
         text=callback_query.message.text + f"\nВаш ответ: <b>{current_answer}</b>",
-        parse_mode="HTML"
+        parse_mode="HTML",
     )

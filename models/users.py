@@ -16,7 +16,7 @@ class User(Document):
             "discount": self.discount,
             "utp": self.utp,
             "pain": self.pain,
-            "lvl_2_ans": self.lvl_2_ans
+            "lvl_2_ans": self.lvl_2_ans,
         }
 
 
@@ -30,7 +30,7 @@ async def increment_discount(user_id: int) -> None:
         await user.save()
 
 
-async def get_user_data(user_id: int) -> User|None :
+async def get_user_data(user_id: int) -> User | None:
     user = await User.find_one({"user_id": user_id})
     return user
 
@@ -53,4 +53,6 @@ async def update_user_data(user_id: int, **kwargs) -> None:
 
 
 async def clear_user_data(user_id: int, username: str) -> None:
-    await update_user_data(user_id=user_id, username=username, discount=0, utp=None, pain=None)
+    await update_user_data(
+        user_id=user_id, username=username, discount=0, utp=None, pain=None
+    )
