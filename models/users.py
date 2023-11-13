@@ -10,23 +10,12 @@ class User(Document):
     lvl_2_ans: dict = {}
     lvl_3_ans: dict = {}
 
-    def to_dict(self):
-        return {
-            "user_id": self.user_id,
-            "username": self.username,
-            "discount": self.discount,
-            "utp": self.utp,
-            "pain": self.pain,
-            "lvl_2_ans": self.lvl_2_ans,
-            "lvl_3_ans": self.lvl_3_ans,
-        }
-
 
 async def increment_discount(user_id: int) -> None:
     user = await get_user_data(user_id=user_id)
 
     if user:
-        discount = user.to_dict().get("discount", 0) + 10
+        discount = user.discount + 10
         setattr(user, "discount", discount)
 
         await user.save()

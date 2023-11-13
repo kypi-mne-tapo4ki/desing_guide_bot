@@ -1,35 +1,37 @@
 from aiogram import F, Router
-from aiogram.types import Message, CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardBuilder
+from aiogram.types import CallbackQuery, Message
+from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
-from models.users import update_user_data, increment_discount
-from tools import hide_buttons, carousel_render
-from keyboards import to_carousel_keyboard, cancel_game_keyboard
+from keyboards import cancel_game_keyboard, to_carousel_keyboard
+from models.users import clear_user_data, increment_discount, update_user_data
+from tools import carousel_render, hide_buttons
 
 first_level_router: Router = Router()
 
 
 # First level
-@first_level_router.callback_query(F.data == "first_level")
-async def first_level_intro(callback_query: CallbackQuery):
-    await hide_buttons(callback_query=callback_query)
+@first_level_router.message(F.text.startswith("Старт игры"))
+async def first_level_intro(message: Message):
+    await clear_user_data(
+        user_id=message.from_user.id, username=message.from_user.username
+    )
 
     next_button = await to_carousel_keyboard(level_num="first")
 
-    level_text = (
-        "💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка <b>+10%</b>."
-    )
+    level_text = "💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка <b>+10%</b>."
     cancel_game_button = await cancel_game_keyboard()
 
-    await callback_query.message.answer(
-        text=level_text, reply_markup=cancel_game_button.as_markup(resize_keyboard=True)
+    await message.answer(
+        text=level_text,
+        reply_markup=cancel_game_button.as_markup(resize_keyboard=True),
+        parse_mode="HTML",
     )
 
     next_text = " Перед тем как перейти к первому вопросу, давайте разберемся, почему графический дизайн так важен:"
-    await callback_query.message.answer(
+    await message.answer(
         text=next_text,
         reply_markup=next_button.as_markup(resize_keyboard=True),
-        parse_mode="HTML"
+        parse_mode="HTML",
     )
 
 
@@ -44,9 +46,7 @@ async def first_level_carousel(callback_query: CallbackQuery):
 async def first_level_continue(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
-    await callback_query.message.answer(
-        text="Для получения бонуса, ответь на вопрос:"
-    )
+    await callback_query.message.answer(text="Для получения бонуса, ответь на вопрос:")
 
     first_question_buttons = InlineKeyboardBuilder()
     first_question_buttons.add(
@@ -72,7 +72,7 @@ async def first_answer_handler(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
     text = 'Напиши свой ответ ниже начиная со слов "<b>Мой продукт ...</b>" или "<b>Моя услуга ...</b>"'
-    await callback_query.message.answer(text=text)
+    await callback_query.message.answer(text=text, parse_mode="HTML")
 
     @first_level_router.message(
         F.text.upper().startswith("МОЙ") | F.text.upper().startswith("МОЯ")

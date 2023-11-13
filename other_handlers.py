@@ -1,9 +1,9 @@
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
+from levels.end_point import finish_game
 from levels.second_level import second_level_intro
 from levels.third_level import third_level_intro
-from levels.end_point import finish_game
 
 other_handlers: Router = Router()
 

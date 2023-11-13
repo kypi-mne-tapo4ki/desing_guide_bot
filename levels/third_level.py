@@ -1,13 +1,13 @@
 import random
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 import data
 from keyboards import to_carousel_keyboard
-from models.users import get_user_data, update_user_data, increment_discount
-from tools import hide_buttons, carousel_render, add_user_answer
+from models.users import get_user_data, increment_discount, update_user_data
+from tools import add_user_answer, carousel_render, hide_buttons
 
 third_level_router: Router = Router()
 
@@ -16,6 +16,7 @@ third_level_router: Router = Router()
 @third_level_router.callback_query(F.data == "third_level_intro")
 async def third_level_intro(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
+    await update_user_data(user_id=callback_query.message.chat.id, lvl_2_ans={})
 
     next_button = await to_carousel_keyboard(level_num="third")
 
@@ -24,7 +25,9 @@ async def third_level_intro(callback_query: CallbackQuery):
         "нестандартным применением дизайна и технологий для увеличения продаж."
     )
     await callback_query.message.answer(
-        text=text, reply_markup=next_button.as_markup(resize_keyboard=True), parse_mode="HTML"
+        text=text,
+        reply_markup=next_button.as_markup(resize_keyboard=True),
+        parse_mode="HTML",
     )
 
 
@@ -43,7 +46,7 @@ async def third_level_continue(callback_query: CallbackQuery):
     buttons.add(
         InlineKeyboardButton(text="Получить задание", callback_data="third_level_task"),
         InlineKeyboardButton(
-            text="Продолжить без бонусов", callback_data="skip_to_end"
+            text="Продолжить без бонусов", callback_data="end_point_intro"
         ),
     )
     buttons.adjust(1)
@@ -64,14 +67,18 @@ async def second_level_task_info(callback_query: CallbackQuery):
     if user:
         await update_user_data(user_id=user.user_id, lvl_3_ans={})
 
-    task_text = ("Задание: выбери верное ли перед тобой утверждение или нет. "
-                 "Бонус за прохождение уровня: скидка <b>+ 10%</b>")
+    task_text = (
+        "Задание: выбери верное ли перед тобой утверждение или нет. "
+        "Бонус за прохождение уровня: скидка <b>+ 10%</b>"
+    )
 
     button = InlineKeyboardBuilder()
     button.add(InlineKeyboardButton(text="Вперед", callback_data="third_solution_"))
 
     await callback_query.message.answer(
-        text=task_text, reply_markup=button.as_markup(reply_keyboard=True), parse_mode="HTML"
+        text=task_text,
+        reply_markup=button.as_markup(reply_keyboard=True),
+        parse_mode="HTML",
     )
 
 
@@ -99,7 +106,9 @@ async def third_level_solution(callback_query: CallbackQuery):
         answers_keyboard = InlineKeyboardBuilder()
         answers_keyboard.add(
             InlineKeyboardButton(text="Верно", callback_data="third_solution_Верно"),
-            InlineKeyboardButton(text="Неверно", callback_data="third_solution_Неверно"),
+            InlineKeyboardButton(
+                text="Неверно", callback_data="third_solution_Неверно"
+            ),
         )
         answers_keyboard.adjust(2)
 

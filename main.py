@@ -4,9 +4,9 @@ import logging
 from aiogram import Bot, Dispatcher
 
 import other_handlers
-from levels import start_point, first_level, second_level, third_level, end_point
 from config_reader import config
 from db import init_db
+from levels import end_point, first_level, second_level, start_point, third_level
 
 
 async def main():

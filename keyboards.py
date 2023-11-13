@@ -1,5 +1,5 @@
-from aiogram.utils import keyboard
 from aiogram import types
+from aiogram.utils import keyboard
 
 
 async def first_page_keyboard(level_num: str):

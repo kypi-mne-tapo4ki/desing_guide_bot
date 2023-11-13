@@ -1,8 +1,8 @@
 import logging
 
 from aiogram import Bot
-from config_reader import config
 
+from config_reader import config
 
 logging.basicConfig(level=logging.INFO)
 

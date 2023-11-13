@@ -1,17 +1,15 @@
 import random
+from time import sleep
 
+import aiogram.exceptions
 from aiogram import F, Router
-from aiogram.types import Message, CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardBuilder
+from aiogram.types import CallbackQuery, Message
+from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 import data
-from models.users import (
-    get_user_data,
-    update_user_data,
-    increment_discount,
-)
-from tools import hide_buttons, carousel_render, add_user_answer
 from keyboards import to_carousel_keyboard
+from models.users import get_user_data, increment_discount, update_user_data
+from tools import add_user_answer, carousel_render, hide_buttons
 
 second_level_router: Router = Router()
 
@@ -26,7 +24,8 @@ async def second_level_intro(callback_query: CallbackQuery):
         "Бонус за прохождение уровня: скидка <b>+10%</b> или <b>+20%</b>."
     )
 
-    await callback_query.message.answer(text=introdution_text)
+    await callback_query.message.answer(text=introdution_text, parse_mode="HTML")
+    sleep(1)
 
     next_button = await to_carousel_keyboard(level_num="second")
 
@@ -39,7 +38,6 @@ async def second_level_intro(callback_query: CallbackQuery):
 # Second level information carousel
 @second_level_router.callback_query(F.data.startswith("second_level_carousel"))
 async def second_level_carousel(callback_query: CallbackQuery):
-
     await carousel_render(callback_query=callback_query, level_num="second")
 
 
@@ -141,9 +139,10 @@ async def second_level_check_result(callback_query: CallbackQuery):
         )
         buttons.adjust(1)
 
-        await update_user_data(user_id=user.user_id, lvl_2_ans={})
         await callback_query.message.answer(
-            text=text, reply_markup=buttons.as_markup(resize_keyboard=True), parse_mode="HTML"
+            text=text,
+            reply_markup=buttons.as_markup(resize_keyboard=True),
+            parse_mode="HTML",
         )
     else:
         buttons = InlineKeyboardBuilder()
@@ -164,7 +163,9 @@ async def second_level_check_result(callback_query: CallbackQuery):
         )
 
         await callback_query.message.answer(
-            text=text, reply_markup=buttons.as_markup(resize_keyboard=True), parse_mode="HTML"
+            text=text,
+            reply_markup=buttons.as_markup(resize_keyboard=True),
+            parse_mode="HTML",
         )
 
 
@@ -174,21 +175,23 @@ async def bonus_task(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
     text = (
-        'Бонусное задание - напиши, какие плюсы и минусы ты заметили у своей компании?'
-        ' Напиши свой ответ ниже начиная со слов <b>"Плюсы ...</b>" или "<b>Минусы ...</b>"'
+        "Бонусное задание - напиши, какие плюсы и минусы ты заметили у своей компании?"
+        ' \nНапиши свой ответ ниже начиная со слов <b>"Плюсы ...</b>" или "<b>Минусы ...</b>".'
     )
 
     user = await get_user_data(user_id=callback_query.message.chat.id)
 
     if user.lvl_2_ans == {}:
-        text = text + '\nИли можешь нажать кнопку "<b>Продолжить без бонусов</b>"'
+        text = text + '\n\nИли можешь нажать кнопку "<b>Продолжить без бонусов</b>".'
 
         buttons = InlineKeyboardBuilder()
         buttons.add(
-            InlineKeyboardButton(text="Продолжить без бонусов", callback_data="skip_to_3"),
+            InlineKeyboardButton(
+                text="Продолжить без бонусов", callback_data="skip_to_3"
+            ),
         )
         buttons.adjust(1)
-        await callback_query.message.answer(
+        bonus_message = await callback_query.message.answer(
             text=text,
             reply_markup=buttons.as_markup(resize_keyboard=True),
             parse_mode="HTML",
@@ -200,9 +203,13 @@ async def bonus_task(callback_query: CallbackQuery):
         F.text.upper().startswith("ПЛЮС") | F.text.upper().startswith("МИНУС")
     )
     async def get_answer(message: Message):
+        try:
+            await hide_buttons(message=bonus_message)
+        except aiogram.exceptions.TelegramBadRequest:
+            pass
         user_id = message.from_user.id
         await increment_discount(user_id=user_id)
-        await update_user_data(user_id=user_id, pain=message.text)
+        await update_user_data(user_id=user_id, pain=message.text, lvl_2_ans={})
 
         next_button = InlineKeyboardBuilder()
         next_button.add(
@@ -215,5 +222,7 @@ async def bonus_task(callback_query: CallbackQuery):
         )
 
         await message.answer(
-            text=text, reply_markup=next_button.as_markup(resize_keyboard=True), parse_mode="HTML"
+            text=text,
+            reply_markup=next_button.as_markup(resize_keyboard=True),
+            parse_mode="HTML",
         )

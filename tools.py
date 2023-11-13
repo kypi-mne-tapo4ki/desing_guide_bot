@@ -1,9 +1,9 @@
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from data import get_first_level_data, get_second_level_data, get_third_level_data
 
 from bot import bot
-from keyboards import first_page_keyboard, middle_pages_keyboard, last_page_keyboard
+from data import get_first_level_data, get_second_level_data, get_third_level_data
+from keyboards import first_page_keyboard, last_page_keyboard, middle_pages_keyboard
 
 
 # This function draws a carousel for a given level
@@ -72,13 +72,21 @@ async def edit_carousel_message(
 
 
 # It`s hides previous message`s buttons
-async def hide_buttons(callback_query: CallbackQuery):
-    await bot.edit_message_text(
-        chat_id=callback_query.message.chat.id,
-        message_id=callback_query.message.message_id,
-        text=callback_query.message.text,
-        reply_markup=None,  # Hide keyboard
-    )
+async def hide_buttons(callback_query: CallbackQuery = None, message: Message = None):
+    if callback_query:
+        await bot.edit_message_text(
+            chat_id=callback_query.message.chat.id,
+            message_id=callback_query.message.message_id,
+            text=callback_query.message.text,
+            reply_markup=None,  # Hide keyboard
+        )
+    if message:
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            text=message.text,
+            reply_markup=None,  # Hide keyboard
+        )
 
 
 # This function add user answer to the end of previous message
