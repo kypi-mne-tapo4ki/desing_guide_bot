@@ -2,39 +2,44 @@ from aiogram.utils import keyboard
 from aiogram import types
 
 
-async def first_page_keyboard(level: str):
+async def first_page_keyboard(level_num: str):
     buttons = keyboard.InlineKeyboardBuilder()
     buttons.add(
-        types.InlineKeyboardButton(text=">>>", callback_data=f"{level}_carousel_2")
+        types.InlineKeyboardButton(text=">>>", callback_data=f"{level_num}_level_carousel_2")
     )
     return buttons
 
 
-async def middle_pages_keyboard(callback_query: types.CallbackQuery, level: str):
+async def middle_pages_keyboard(callback_query: types.CallbackQuery, level_num: str):
     buttons = keyboard.InlineKeyboardBuilder()
     buttons.add(
-        types.InlineKeyboardButton(text="<<<",
-                                   callback_data=f"{level}_carousel_{(str(int(callback_query.data[-1]) - 1))}"),
-        types.InlineKeyboardButton(text=">>>",
-                                   callback_data=f"{level}_carousel_{(str(int(callback_query.data[-1]) + 1))}"),
+        types.InlineKeyboardButton(
+            text="<<<",
+            callback_data=f"{level_num}_level_carousel_{(str(int(callback_query.data[-1]) - 1))}"),
+        types.InlineKeyboardButton(
+            text=">>>",
+            callback_data=f"{level_num}_level_carousel_{(str(int(callback_query.data[-1]) + 1))}"),
     )
     return buttons
 
 
-async def last_page_keyboard(callback_query: types.CallbackQuery, level: str):
+async def last_page_keyboard(callback_query: types.CallbackQuery, level_num: str):
     buttons = keyboard.InlineKeyboardBuilder()
     buttons.add(
-        types.InlineKeyboardButton(text="<<<",
-                                   callback_data=f"{level}_carousel_{(str(int(callback_query.data[-1]) - 1))}"),
-        types.InlineKeyboardButton(text="Далее", callback_data=f"{level}_continue")
+        types.InlineKeyboardButton(
+            text="<<<",
+            callback_data=f"{level_num}_level_carousel_{(str(int(callback_query.data[-1]) - 1))}"),
+        types.InlineKeyboardButton(
+            text="Далее",
+            callback_data=f"{level_num}_level_continue")
     )
     return buttons
 
 
-async def to_carousel_keyboard(level: str):
+async def to_carousel_keyboard(level_num: str):
     button = keyboard.InlineKeyboardBuilder()
     button.add(
-        types.InlineKeyboardButton(text="Далее", callback_data=f"{level}_carousel_1")
+        types.InlineKeyboardButton(text="Далее", callback_data=f"{level_num}_level_carousel_1")
     )
     return button
 

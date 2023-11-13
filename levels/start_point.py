@@ -19,24 +19,24 @@ async def cmd_start(message: Message):
         "сложных вопросов!"
     )
 
-    user = await get_user_data(user_id=message.from_user.id)
-    if not user:
-        user = User(user_id=message.from_user.id)
-        await user.save()
     await message.answer(text=welcome_text)
     await main_menu(message=message)
 
 
 async def main_menu(message: Message):
     user = await get_user_data(message.from_user.id)
-    user_data = user.to_dict()
 
     text = "Чтобы получить бонус, нажмите 'Старт игры'"
-    if user_data["discount"] != 0:
+    if user:
+        user_data = user.to_dict()
         text = (
-                   "Похоже вы уже играли ранее. Если начать новую игры ваши заработанные баллы сгорят. "
-                   "Хотите попробовать снова?\n"
+                   f"Похоже ты уже играл ранее. \nТвоя накопленная скидка <b>{user_data['discount']}%</b>. "
+                   "Если начать новую игры ваши заработанные баллы сгорят. "
+                   "Хотите попробовать снова?\n\n"
                ) + text
+    else:
+        user = User(user_id=message.from_user.id, username=message.from_user.username)
+        await user.save()
 
     start_button = ReplyKeyboardBuilder()
     start_button.add(KeyboardButton(text="Старт игры"))
@@ -44,6 +44,7 @@ async def main_menu(message: Message):
     await message.answer(
         text=text,
         reply_markup=start_button.as_markup(resize_keyboard=True),
+        parse_mode="HTML"
     )
 
 
@@ -51,7 +52,7 @@ async def main_menu(message: Message):
 @start_point_router.message(F.text == "Старт игры")
 async def new_game(message: Message):
     # Clear user data
-    await clear_user_data(message.from_user.id)
+    await clear_user_data(user_id=message.from_user.id, username=message.from_user.username)
 
     next_button = InlineKeyboardBuilder()
     next_button.add(

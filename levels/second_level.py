@@ -7,7 +7,7 @@ from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardBuilder
 from bot import bot
 import data
 from models.users import User, get_user_data, update_user_data, clear_user_data, increment_discount
-from tools import hide_buttons, carousel_render
+from tools import hide_buttons, carousel_render, add_user_answer
 from keyboards import to_carousel_keyboard
 
 second_level_router: Router = Router()
@@ -25,7 +25,7 @@ async def second_level_intro(callback_query: CallbackQuery):
 
     await callback_query.message.answer(text=introdution_text)
 
-    next_button = await to_carousel_keyboard(level="second_level")
+    next_button = await to_carousel_keyboard(level_num="second")
 
     await callback_query.message.answer(
         text="Теперь давайте перейдем к методам увеличения продаж с помощью графики:",
@@ -36,9 +36,9 @@ async def second_level_intro(callback_query: CallbackQuery):
 # Second level information carousel
 @second_level_router.callback_query(F.data.startswith("second_level_carousel"))
 async def second_level_carousel(callback_query: CallbackQuery):
-    level = callback_query.data[:callback_query.data.find("level") + 5]
+    # level = callback_query.data[:callback_query.data.find("level") + 5]
 
-    await carousel_render(callback_query=callback_query, level=level)
+    await carousel_render(callback_query=callback_query, level_num="second")
 
 
 # Second level continue
@@ -51,6 +51,7 @@ async def second_level_continue(callback_query: CallbackQuery):
         InlineKeyboardButton(text="Получить задание", callback_data="second_level_task"),
         InlineKeyboardButton(text="Продолжить без бонусов", callback_data="skip_to_3")
     )
+    buttons.adjust(1)
 
     text = "Перед тем как идти дальше, давайте закрепим информацию на примерах."
     await callback_query.message.answer(
@@ -64,10 +65,12 @@ async def second_level_continue(callback_query: CallbackQuery):
 async def second_level_task_info(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
+    user = await get_user_data(user_id=callback_query.message.chat.id)
+    if user:
+        await update_user_data(user_id=user.user_id, lvl_2_ans={})
+
     task_text = "Задание: Сопоставьте бренд и его описание"
 
-    origin_results = await data.get_second_level_answers()
-    user_results = {}
     button = InlineKeyboardBuilder()
     button.add(InlineKeyboardButton(text="Вперед", callback_data="answer_"))
 
@@ -76,62 +79,60 @@ async def second_level_task_info(callback_query: CallbackQuery):
         reply_markup=button.as_markup(reply_keyboard=True)
     )
 
-    @second_level_router.callback_query(F.data.startswith("answer_"))
-    async def second_level_answers(callback_query_a: CallbackQuery):
 
-        current_answer: str = ""
+@second_level_router.callback_query(F.data.startswith("answer_"))
+async def second_level_answers(callback_query: CallbackQuery):
 
-        try:
-            current_answer = callback_query_a.data.split("_")[1]
-            origin_results.pop(current_answer)
-        except (KeyError, IndexError):
-            pass
+    correct_results = await data.get_second_level_answers()
+    user = await get_user_data(user_id=callback_query.message.chat.id)
+    user_answers = user.lvl_2_ans
 
-        if current_answer != "":
-            user_results.update({current_answer: callback_query_a.message.text})
+    current_answer = callback_query.data.split("_")[1]
+    if current_answer != "":
+        user_answers.update({current_answer: callback_query.message.text})
+        await update_user_data(user_id=user.user_id, lvl_2_ans=user_answers)
 
-            await bot.edit_message_text(
-                chat_id=callback_query_a.message.chat.id,
-                message_id=callback_query_a.message.message_id,
-                text=callback_query_a.message.text + f"\nВаш ответ: {current_answer}"
-            )
-        else:
-            await hide_buttons(callback_query=callback_query_a)
+        for key in user_answers.keys():
+            correct_results.pop(key)
 
-        if len(origin_results) == 0:
-            await hide_buttons(callback_query=callback_query_a)
-            await second_level_check_result(
-                callback_query=callback_query_a,
-                user_results=user_results
-            )
+        await add_user_answer(callback_query=callback_query, current_answer=current_answer)
+    else:
+        await hide_buttons(callback_query=callback_query)
 
+    if len(correct_results) != 0:
         answers_keyboard = InlineKeyboardBuilder()
-        for key in origin_results.keys():
+        for key in correct_results.keys():
             answers_keyboard.add(InlineKeyboardButton(text=key, callback_data=f"answer_{key}"))
         answers_keyboard.adjust(2)
 
-        answer, text = random.sample(list(origin_results.items()), 1)[0]
+        answer, text = random.sample(list(correct_results.items()), 1)[0]
 
-        await callback_query_a.message.answer(
+        await callback_query.message.answer(
             text=text,
             reply_markup=answers_keyboard.as_markup(resize_keyboard=True)
         )
+    else:
+        await second_level_check_result(callback_query=callback_query)
 
 
 # Second level result checking
-async def second_level_check_result(callback_query: CallbackQuery, user_results: dict):
+async def second_level_check_result(callback_query: CallbackQuery):
     origin_results = await data.get_second_level_answers()
-    if user_results == origin_results:
+    user = await get_user_data(user_id=callback_query.message.chat.id)
+    user_answers = user.lvl_2_ans
+
+    if user_answers == origin_results:
         await increment_discount(user_id=callback_query.message.chat.id)
 
-        text = ("Поздравляю! Ты ответил правильно, держи 10% скидки 🥳. Ты можешь получить еще 10% если ответишь на "
-                "бонусный вопрос")
+        text = ("Поздравляю! Ты ответил правильно, держи 10% скидки 🥳. Ты можешь получить еще 10%, если ответишь на "
+                "бонусный вопрос.")
 
         buttons = InlineKeyboardBuilder()
         buttons.add(
             InlineKeyboardButton(text="Получить бонус", callback_data="bonus_task"),
             InlineKeyboardButton(text="Продолжить без бонуса", callback_data="skip_to_3"),
         )
+        buttons.adjust(1)
 
         await callback_query.message.answer(
             text=text,
@@ -161,28 +162,27 @@ async def bonus_task(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
     text = ("Бонусное задание - напишите, какие плюсы и минусы вы заметили у своей компании?"
-            "Напишите свой ответ ниже начиная со слов 'Плюсы ...', 'Минусы ...', 'К ...', 'Из...'")
+            "Напишите свой ответ ниже начиная со слов 'Плюсы ...' или 'Минусы ...'")
     await callback_query.message.answer(text=text)
 
+    @second_level_router.message(F.text.upper().startswith("ПЛЮСЫ") | F.text.upper().startswith("МИНУСЫ"))
+    async def get_answer(message: Message):
 
-@second_level_router.message(F.text.upper().contains(data.SECOND_LEVEL_ANSWER_TRIGGER))
-async def get_answer(message: Message):
+        user_id = message.from_user.id
+        await increment_discount(user_id=user_id)
+        await update_user_data(user_id=user_id, pain=message.text)
 
-    user_id = message.from_user.id
-    await increment_discount(user_id=user_id)
-    await update_user_data(user_id=user_id, pain=message.text)
+        next_button = InlineKeyboardBuilder()
+        next_button.add(
+            InlineKeyboardButton(text="Далее", callback_data="third_level_intro")
+        )
 
-    next_button = InlineKeyboardBuilder()
-    next_button.add(
-        InlineKeyboardButton(text="Далее", callback_data="third_level_intro")
-    )
+        text = (
+            "Твой ответ принят. Держи еще 10% скидки на мои услуги 😊 "
+            "Готов к следующему вызову?"
+        )
 
-    text = (
-        "🎮 Отлично! Ваши знания о графическом дизайне и его влиянии на бизнес продолжают расти. "
-        "Готовы к следующему вызову?"
-    )
-
-    await message.answer(
-        text=text,
-        reply_markup=next_button.as_markup(resize_keyboard=True)
-    )
+        await message.answer(
+            text=text,
+            reply_markup=next_button.as_markup(resize_keyboard=True)
+        )
