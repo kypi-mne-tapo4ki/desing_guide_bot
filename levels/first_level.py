@@ -2,7 +2,6 @@ from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardBuilder
 
-import data
 from models.users import update_user_data, increment_discount
 from tools import hide_buttons, carousel_render
 from keyboards import to_carousel_keyboard, cancel_game_keyboard
@@ -18,7 +17,7 @@ async def first_level_intro(callback_query: CallbackQuery):
     next_button = await to_carousel_keyboard(level_num="first")
 
     level_text = (
-        "💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка 10%"
+        "💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка <b>+10%</b>."
     )
     cancel_game_button = await cancel_game_keyboard()
 
@@ -30,6 +29,7 @@ async def first_level_intro(callback_query: CallbackQuery):
     await callback_query.message.answer(
         text=next_text,
         reply_markup=next_button.as_markup(resize_keyboard=True),
+        parse_mode="HTML"
     )
 
 
@@ -45,7 +45,7 @@ async def first_level_continue(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
     await callback_query.message.answer(
-        text="Для получения бонуса, ответьте на вопрос:"
+        text="Для получения бонуса, ответь на вопрос:"
     )
 
     first_question_buttons = InlineKeyboardBuilder()
@@ -56,7 +56,7 @@ async def first_level_continue(callback_query: CallbackQuery):
     first_question_buttons.adjust(1)
 
     first_question_text = (
-        "🤔Вопрос: А что делает ваш продукт или услугу более заметными и привлекательными"
+        "🤔Вопрос: А что делает твой продукт или услугу более заметными и привлекательными"
         " для потенциальных клиентов?"
     )
 
@@ -71,7 +71,7 @@ async def first_level_continue(callback_query: CallbackQuery):
 async def first_answer_handler(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
-    text = "Напишите свой ответ ниже начиная со слов 'Мой продукт ...' или 'Моя услуга ...'"
+    text = 'Напиши свой ответ ниже начиная со слов "<b>Мой продукт ...</b>" или "<b>Моя услуга ...</b>"'
     await callback_query.message.answer(text=text)
 
     @first_level_router.message(
@@ -87,8 +87,8 @@ async def first_answer_handler(callback_query: CallbackQuery):
         )
 
         text = (
-            "🎮 Отлично! Ваши знания о графическом дизайне и его влиянии на бизнес продолжают расти. "
-            "Готовы к следующему вызову?"
+            "🎮 Отлично! Твои знания о графическом дизайне и его влиянии на бизнес продолжают расти. "
+            "Готов к следующему вызову?"
         )
 
         await message.answer(

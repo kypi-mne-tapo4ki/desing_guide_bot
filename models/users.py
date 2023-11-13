@@ -8,6 +8,7 @@ class User(Document):
     utp: str | None = None
     pain: str | None = None
     lvl_2_ans: dict = {}
+    lvl_3_ans: dict = {}
 
     def to_dict(self):
         return {
@@ -17,6 +18,7 @@ class User(Document):
             "utp": self.utp,
             "pain": self.pain,
             "lvl_2_ans": self.lvl_2_ans,
+            "lvl_3_ans": self.lvl_3_ans,
         }
 
 
@@ -33,13 +35,6 @@ async def increment_discount(user_id: int) -> None:
 async def get_user_data(user_id: int) -> User | None:
     user = await User.find_one({"user_id": user_id})
     return user
-
-
-async def get_second_level_answers(user_id: int) -> dict:
-    user = await get_user_data(user_id=user_id)
-
-    if user:
-        return user.lvl_2_ans
 
 
 async def update_user_data(user_id: int, **kwargs) -> None:

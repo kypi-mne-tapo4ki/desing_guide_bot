@@ -81,6 +81,7 @@ async def hide_buttons(callback_query: CallbackQuery):
     )
 
 
+# This function add user answer to the end of previous message
 async def add_user_answer(callback_query: CallbackQuery, current_answer: str):
     await bot.edit_message_text(
         chat_id=callback_query.message.chat.id,

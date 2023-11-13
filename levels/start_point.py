@@ -16,26 +16,25 @@ start_point_router: Router = Router()
 @start_point_router.message(Command("start"))
 async def cmd_start(message: Message):
     welcome_text = (
-        "Привет и добро пожаловать! Вы попали в дизайн-игру - место, где вы сможете на практике разобраться, "
-        "как графический дизайн может помочь увеличить ваши продажи и привлечь больше клиентов. А также "
-        "получить скидку на мои услуги до 40%! Готовы начать свое путешествие? Давайте начнем с самых "
+        "Привет и добро пожаловать! Ты попал в дизайн-игру - место, где ты сможешь на практике разобраться, "
+        "как графический дизайн может помочь увеличить твои продажи и привлечь больше клиентов. А также "
+        "получить скидку на мои услуги до <b>40%</b>! Готов начать свое путешествие? Давай начнем с самых "
         "сложных вопросов!"
     )
 
-    await message.answer(text=welcome_text)
+    await message.answer(text=welcome_text, parse_mode="HTML")
     await main_menu(message=message)
 
 
 async def main_menu(message: Message):
     user = await get_user_data(message.from_user.id)
 
-    text = "Чтобы получить бонус, нажмите 'Старт игры'"
+    text = 'Чтобы начать, нажми "<b>Старт игры</b>"'
     if user:
-        user_data = user.to_dict()
         text = (
-            f"Похоже ты уже играл ранее. \nТвоя накопленная скидка <b>{user_data['discount']}%</b>. "
-            "Если начать новую игры ваши заработанные баллы сгорят. "
-            "Хотите попробовать снова?\n\n"
+            "Похоже ты уже играл ранее. \nЕсли начать новую игру, твой результат <b>обнулится</b>. Ты можешь написать "
+            f"мне @theermolaeva, чтобы получить скидку <b>{user.discount}%</b> на услуги графического дизайнера. " 
+            "\nХочешь попробовать снова?\n\n"
         ) + text
     else:
         user = User(user_id=message.from_user.id, username=message.from_user.username)
