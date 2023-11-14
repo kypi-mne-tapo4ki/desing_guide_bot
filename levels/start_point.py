@@ -1,11 +1,9 @@
-from aiogram import F, Router
+from datetime import datetime
+
+from aiogram import Router
 from aiogram.filters.command import Command
 from aiogram.types import KeyboardButton, Message
-from aiogram.utils.keyboard import (
-    InlineKeyboardBuilder,
-    InlineKeyboardButton,
-    ReplyKeyboardBuilder,
-)
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 from models.users import User, get_user_data
 
@@ -36,7 +34,7 @@ async def main_menu(message: Message):
             " попробовать пройти игру занова.\n\n"
         ) + text
     else:
-        user = User(user_id=message.from_user.id, username=message.from_user.username)
+        user = User(user_id=message.from_user.id, username=message.from_user.username, date=datetime.utcnow())
         await user.save()
 
     start_button = ReplyKeyboardBuilder()
@@ -47,19 +45,3 @@ async def main_menu(message: Message):
         reply_markup=start_button.as_markup(resize_keyboard=True),
         parse_mode="HTML",
     )
-
-
-#
-# # Start game
-# @start_point_router.message(F.text == "Старт игры")
-# async def new_game(message: Message):
-#     await clear_user_data(
-#         user_id=message.from_user.id, username=message.from_user.username
-#     )
-#
-#     next_button = InlineKeyboardBuilder()
-#     next_button.add(InlineKeyboardButton(text="Далее", callback_data="first_level"))
-#
-#     await message.answer(
-#         text="Желаю удачи!", reply_markup=next_button.as_markup(resize_keyboard=True)
-#     )

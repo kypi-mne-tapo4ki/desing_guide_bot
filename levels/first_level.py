@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from keyboards import cancel_game_keyboard, to_carousel_keyboard
-from models.users import clear_user_data, increment_discount, update_user_data
+from models.users import clear_user_data, increment_discount, update_user_data, get_user_data
 from tools import carousel_render, hide_buttons
 
 first_level_router: Router = Router()
@@ -78,19 +78,36 @@ async def first_answer_handler(callback_query: CallbackQuery):
         F.text.upper().startswith("МОЙ") | F.text.upper().startswith("МОЯ")
     )
     async def get_answer(message: Message):
-        await update_user_data(user_id=message.from_user.id, utp=message.text)
-        await increment_discount(user_id=message.from_user.id)
+        user = await get_user_data(user_id=message.from_user.id)
+        if user.utp is None:
+            await update_user_data(user_id=user.user_id, utp=message.text)
+            await increment_discount(user_id=user.user_id)
 
-        next_button = InlineKeyboardBuilder()
-        next_button.add(
-            InlineKeyboardButton(text="Далее", callback_data="second_level_intro")
-        )
+            next_button = InlineKeyboardBuilder()
+            next_button.add(
+                InlineKeyboardButton(text="Далее", callback_data="second_level_intro")
+            )
 
-        text = (
-            "🎮 Отлично! Твои знания о графическом дизайне и его влиянии на бизнес продолжают расти. "
-            "Готов к следующему вызову?"
-        )
+            text = (
+                "🎮 Отлично! Твои знания о графическом дизайне и его влиянии на бизнес продолжают расти. "
+                "Готов к следующему вызову?"
+            )
 
-        await message.answer(
-            text=text, reply_markup=next_button.as_markup(resize_keyboard=True)
-        )
+            await message.answer(
+                text=text, reply_markup=next_button.as_markup(resize_keyboard=True)
+            )
+        else:
+            ok_button = InlineKeyboardBuilder()
+            ok_button.add(
+                InlineKeyboardButton(text="Ладно 😔", callback_data="second_level_intro")
+            )
+
+            angry_text = (
+                "Ты уже отвечал на этот вопрос 😡 Возвращаю тебя на второй уровень 🪄"
+            )
+
+            await message.answer(
+                text=angry_text,
+                reply_markup=ok_button.as_markup(resize_keyboard=True)
+            )
+

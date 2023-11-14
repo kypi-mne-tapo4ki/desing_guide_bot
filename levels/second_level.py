@@ -207,22 +207,37 @@ async def bonus_task(callback_query: CallbackQuery):
             await hide_buttons(message=bonus_message)
         except (TelegramBadRequest, NameError):
             pass
-        user_id = message.from_user.id
-        await increment_discount(user_id=user_id)
-        await update_user_data(user_id=user_id, pain=message.text, lvl_2_ans={})
 
-        next_button = InlineKeyboardBuilder()
-        next_button.add(
-            InlineKeyboardButton(text="Далее", callback_data="third_level_intro")
-        )
+        if user.pain is None:
+            await increment_discount(user_id=user.user_id)
+            await update_user_data(user_id=user.user_id, pain=message.text, lvl_2_ans={})
 
-        text = (
-            "Твой ответ принят. Держи еще <b>10%</b> скидки на мои услуги 😊 "
-            "Готов к следующему вызову?"
-        )
+            next_button = InlineKeyboardBuilder()
+            next_button.add(
+                InlineKeyboardButton(text="Далее", callback_data="third_level_intro")
+            )
 
-        await message.answer(
-            text=text,
-            reply_markup=next_button.as_markup(resize_keyboard=True),
-            parse_mode="HTML",
-        )
+            text = (
+                "Твой ответ принят. Держи еще <b>10%</b> скидки на мои услуги 😊 "
+                "Готов к следующему вызову?"
+            )
+
+            await message.answer(
+                text=text,
+                reply_markup=next_button.as_markup(resize_keyboard=True),
+                parse_mode="HTML",
+            )
+        else:
+            ok_button = InlineKeyboardBuilder()
+            ok_button.add(
+                InlineKeyboardButton(text="Ладно 😔", callback_data="third_level_intro")
+            )
+
+            angry_text = (
+                "Ты уже отвечал на этот вопрос 😡 Возвращаю тебя на третий уровень 🪄"
+            )
+
+            await message.answer(
+                text=angry_text,
+                reply_markup=ok_button.as_markup(resize_keyboard=True)
+            )

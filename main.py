@@ -3,9 +3,9 @@ import logging
 
 from aiogram import Bot, Dispatcher
 
-import other_handlers
-from config_reader import config
-from db import init_db
+from handlers import other_handlers, admin_handlers
+from config.secrets_reader import config
+from config.database import init_db
 from levels import end_point, first_level, second_level, start_point, third_level
 
 
@@ -26,7 +26,8 @@ async def main():
     dp.include_router(second_level.second_level_router)
     dp.include_router(third_level.third_level_router)
     dp.include_router(end_point.end_point_router)
-    dp.include_router(other_handlers.other_handlers)
+    dp.include_router(other_handlers.other_handlers_router)
+    dp.include_router(admin_handlers.admin_handlers_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)

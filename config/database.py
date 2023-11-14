@@ -1,7 +1,7 @@
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from config_reader import config
+from config.secrets_reader import config
 from models.users import User
 
 

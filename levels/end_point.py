@@ -4,10 +4,10 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from bot import bot
-from config_reader import config
+from config.bot import bot
+from config.secrets_reader import config
 from levels.start_point import main_menu
-from models.users import get_user_data, increment_discount
+from models.users import get_user_data, increment_discount, update_user_data
 from tools import hide_buttons
 
 end_point_router: Router = Router()
@@ -43,7 +43,7 @@ async def end_point_intro(callback_query: CallbackQuery):
     buttons = InlineKeyboardBuilder()
     buttons.add(
         InlineKeyboardButton(text="Использовать бонус!", callback_data="use_discount"),
-        InlineKeyboardButton(text="Отложить бонус", callback_data="postpone_discount"),
+        InlineKeyboardButton(text="Отложить бонус", callback_data="defer_discount"),
     )
 
     buttons.adjust(1)
@@ -60,7 +60,7 @@ async def use_discount(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
     await callback_query.message.answer(
-        "Спасибо за за игру! Я уже получила твои результаты 😊 Возвращаю тебя"
+        "Спасибо за игру! Я уже получила твои результаты 😊 Возвращаю тебя"
         " в главное меню. Ćao!"
     )
 
@@ -68,7 +68,7 @@ async def use_discount(callback_query: CallbackQuery):
     user = await get_user_data(user_id=callback_query.message.chat.id)
 
     text = (
-        f"Новая заявка от пользователя @{user.username} "
+        f"Новая заявка от пользователя @{user.username} \nID: {user.user_id} "
         f"\nСкидка: <b>{user.discount}%</b> \nUTP: {user.utp} \nPain: {user.pain}"
     )
     await bot.send_message(chat_id=admin, text=text, parse_mode="HTML")
@@ -77,13 +77,14 @@ async def use_discount(callback_query: CallbackQuery):
 
 
 # Finish the game with a saved bonus
-@end_point_router.callback_query(F.data == "postpone_discount")
-async def postpone_discount(callback_query: CallbackQuery):
+@end_point_router.callback_query(F.data == "defer_discount")
+async def defer_discount(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
     await callback_query.message.answer(
-        "Бонус отложен. Спасибо за за игру! Возвращаю вас в главное меню. Ćao!"
+        "Бонус отложен. Спасибо за игру! Возвращаю тебя в главное меню. Ćao!"
     )
+    await update_user_data(user_id=callback_query.message.chat.id, defer_discount=True)
     await asyncio.sleep(3)
     await main_menu(message=callback_query.message)
 

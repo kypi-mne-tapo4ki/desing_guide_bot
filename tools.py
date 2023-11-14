@@ -1,7 +1,7 @@
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from bot import bot
+from config.bot import bot
 from data import get_first_level_data, get_second_level_data, get_third_level_data
 from keyboards import first_page_keyboard, last_page_keyboard, middle_pages_keyboard
 
