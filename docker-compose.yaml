@@ -1,0 +1,25 @@
+version: "3.5"
+
+volumes:
+  design_guide_bot_data:
+    name: design-guide-bot-data
+
+services:
+  db:
+    container_name: "design-guide-bot-db"
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - design_guide_bot_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: tg_bot_db
+
+  bot:
+    build:
+      context: .
+    container_name: "design-guide-bot-app"
+    restart: always
+    env_file: .env
+    depends_on:
+      - db

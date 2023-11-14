@@ -1,7 +1,7 @@
+import asyncio
 import random
-from time import sleep
 
-import aiogram.exceptions
+from aiogram.exceptions import TelegramBadRequest
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
@@ -25,7 +25,7 @@ async def second_level_intro(callback_query: CallbackQuery):
     )
 
     await callback_query.message.answer(text=introdution_text, parse_mode="HTML")
-    sleep(1)
+    await asyncio.sleep(1)
 
     next_button = await to_carousel_keyboard(level_num="second")
 
@@ -205,7 +205,7 @@ async def bonus_task(callback_query: CallbackQuery):
     async def get_answer(message: Message):
         try:
             await hide_buttons(message=bonus_message)
-        except aiogram.exceptions.TelegramBadRequest:
+        except (TelegramBadRequest, NameError):
             pass
         user_id = message.from_user.id
         await increment_discount(user_id=user_id)

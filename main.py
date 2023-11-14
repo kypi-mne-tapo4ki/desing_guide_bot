@@ -15,6 +15,7 @@ async def main():
     # Bot settings
     bot = Bot(token=config.bot_token.get_secret_value())
     dp = Dispatcher()
+    await asyncio.sleep(5)
 
     # Init db
     await init_db()

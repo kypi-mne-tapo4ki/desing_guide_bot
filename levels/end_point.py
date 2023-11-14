@@ -1,4 +1,4 @@
-from time import sleep
+import asyncio
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
@@ -21,7 +21,7 @@ async def end_point_intro(callback_query: CallbackQuery):
     await callback_query.message.answer(
         text="ОК! Теперь настало время применить полученные знания на практике 😉"
     )
-    sleep(1)
+    await asyncio.sleep(1)
 
     user = await get_user_data(user_id=callback_query.message.chat.id)
     if user.discount == 0:
@@ -72,7 +72,7 @@ async def use_discount(callback_query: CallbackQuery):
         f"\nСкидка: <b>{user.discount}%</b> \nUTP: {user.utp} \nPain: {user.pain}"
     )
     await bot.send_message(chat_id=admin, text=text, parse_mode="HTML")
-    sleep(3)
+    await asyncio.sleep(3)
     await main_menu(message=callback_query.message)
 
 
@@ -84,7 +84,7 @@ async def postpone_discount(callback_query: CallbackQuery):
     await callback_query.message.answer(
         "Бонус отложен. Спасибо за за игру! Возвращаю вас в главное меню. Ćao!"
     )
-    sleep(3)
+    await asyncio.sleep(3)
     await main_menu(message=callback_query.message)
 
 
