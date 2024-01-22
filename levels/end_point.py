@@ -6,7 +6,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config.bot import bot
 from config.secrets_reader import config
-from levels.start_point import main_menu
+# from levels.start_point import main_menu
+from levels.start_point import cmd_start
 from models.users import get_user_data, increment_discount, update_user_data
 from tools import hide_buttons
 
@@ -73,7 +74,7 @@ async def use_discount(callback_query: CallbackQuery):
     )
     await bot.send_message(chat_id=admin, text=text, parse_mode="HTML")
     await asyncio.sleep(3)
-    await main_menu(message=callback_query.message)
+    await cmd_start(message=callback_query.message)
 
 
 # Finish the game with a saved bonus
@@ -86,7 +87,7 @@ async def defer_discount(callback_query: CallbackQuery):
     )
     await update_user_data(user_id=callback_query.message.chat.id, defer_discount=True)
     await asyncio.sleep(3)
-    await main_menu(message=callback_query.message)
+    await cmd_start(message=callback_query.message)
 
 
 # Event to end the game
@@ -97,4 +98,4 @@ async def finish_game(message: Message):
         chat_id=message.chat.id,
         text="Игра завершена. Вернемся в основное меню.",
     )
-    await main_menu(message)
+    await cmd_start(message)

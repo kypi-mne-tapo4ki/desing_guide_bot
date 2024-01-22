@@ -48,7 +48,6 @@ async def update_user_data(user_id: int, **kwargs) -> None:
     if user:
         for key, value in kwargs.items():
             setattr(user, key, value)
-
         await user.save()
 
 

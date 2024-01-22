@@ -4,13 +4,15 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from keyboards import cancel_game_keyboard, to_carousel_keyboard
 from models.users import clear_user_data, increment_discount, update_user_data, get_user_data
-from tools import carousel_render, hide_buttons
+from tools import carousel_render, hide_buttons, read_texts
 
 first_level_router: Router = Router()
+start_point_texts = read_texts("texts/start_point_texts.json")
+first_level_texts = read_texts("texts/first_level_texts.json")
 
 
 # First level
-@first_level_router.message(F.text.startswith("Старт игры"))
+@first_level_router.message(F.text.startswith(start_point_texts["start_button_text"]))
 async def first_level_intro(message: Message):
     await clear_user_data(
         user_id=message.from_user.id, username=message.from_user.username
@@ -18,7 +20,7 @@ async def first_level_intro(message: Message):
 
     next_button = await to_carousel_keyboard(level_num="first")
 
-    level_text = "💡 Уровень 1: Зачем нужен графический дизайн? Бонус за прохождение: скидка <b>+10%</b>."
+    level_text = first_level_texts["level_text"]
     cancel_game_button = await cancel_game_keyboard()
 
     await message.answer(
@@ -27,7 +29,7 @@ async def first_level_intro(message: Message):
         parse_mode="HTML",
     )
 
-    next_text = " Перед тем как перейти к первому вопросу, давайте разберемся, почему графический дизайн так важен:"
+    next_text = first_level_texts["next_text"]
     await message.answer(
         text=next_text,
         reply_markup=next_button.as_markup(resize_keyboard=True),
@@ -46,19 +48,15 @@ async def first_level_carousel(callback_query: CallbackQuery):
 async def first_level_continue(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
-    await callback_query.message.answer(text="Для получения бонуса, ответь на вопрос:")
+    await callback_query.message.answer(text=first_level_texts["instruction_text"])
 
     first_question_buttons = InlineKeyboardBuilder()
     first_question_buttons.add(
-        InlineKeyboardButton(text="Ответить", callback_data="first_level_task"),
-        InlineKeyboardButton(text="Продолжить без бонуса", callback_data="skip_to_2"),
+        InlineKeyboardButton(text=first_level_texts["answer_button_text"], callback_data="first_level_task"),
+        InlineKeyboardButton(text=first_level_texts["without_bonus_button_text"], callback_data="skip_to_2"),
     )
     first_question_buttons.adjust(1)
-
-    first_question_text = (
-        "🤔Вопрос: А что делает твой продукт или услугу более заметными и привлекательными"
-        " для потенциальных клиентов?"
-    )
+    first_question_text = first_level_texts["first_question_text"]
 
     await callback_query.message.answer(
         text=first_question_text,
@@ -71,43 +69,36 @@ async def first_level_continue(callback_query: CallbackQuery):
 async def first_answer_handler(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
-    text = 'Напиши свой ответ ниже начиная со слов "<b>Мой продукт ...</b>" или "<b>Моя услуга ...</b>"'
-    await callback_query.message.answer(text=text, parse_mode="HTML")
+    recommendation_text = first_level_texts["recommendation_text"]
+    await callback_query.message.answer(text=recommendation_text, parse_mode="HTML")
 
-    @first_level_router.message(
-        F.text.upper().startswith("МОЙ") | F.text.upper().startswith("МОЯ")
+
+@first_level_router.message(
+    F.text.upper().startswith(first_level_texts["first_filter_text"]) | F.text.upper().startswith("second_filter_text")
+)
+async def get_answer(message: Message):
+    user = await get_user_data(user_id=message.from_user.id)
+    if user.utp is None:
+        await update_user_data(user_id=user.user_id, utp=message.text)
+        await increment_discount(user_id=user.user_id)
+
+        next_button = InlineKeyboardBuilder()
+        next_button.add(
+            InlineKeyboardButton(text=first_level_texts["next_button_text"], callback_data="second_level_intro")
+        )
+        congrats_text = first_level_texts["congrats_text"]
+
+        await message.answer(
+            text=congrats_text, reply_markup=next_button.as_markup(resize_keyboard=True)
+        )
+    else:
+        ok_button = InlineKeyboardBuilder()
+        ok_button.add(
+            InlineKeyboardButton(text=first_level_texts["ok_button_text"], callback_data="second_level_intro")
+        )
+        angry_text = first_level_texts["angry_text"]
+
+        await message.answer(
+            text=angry_text,
+            reply_markup=ok_button.as_markup(resize_keyboard=True)
     )
-    async def get_answer(message: Message):
-        user = await get_user_data(user_id=message.from_user.id)
-        if user.utp is None:
-            await update_user_data(user_id=user.user_id, utp=message.text)
-            await increment_discount(user_id=user.user_id)
-
-            next_button = InlineKeyboardBuilder()
-            next_button.add(
-                InlineKeyboardButton(text="Далее", callback_data="second_level_intro")
-            )
-
-            text = (
-                "🎮 Отлично! Твои знания о графическом дизайне и его влиянии на бизнес продолжают расти. "
-                "Готов к следующему вызову?"
-            )
-
-            await message.answer(
-                text=text, reply_markup=next_button.as_markup(resize_keyboard=True)
-            )
-        else:
-            ok_button = InlineKeyboardBuilder()
-            ok_button.add(
-                InlineKeyboardButton(text="Ладно 😔", callback_data="second_level_intro")
-            )
-
-            angry_text = (
-                "Ты уже отвечал на этот вопрос 😡 Возвращаю тебя на второй уровень 🪄"
-            )
-
-            await message.answer(
-                text=angry_text,
-                reply_markup=ok_button.as_markup(resize_keyboard=True)
-            )
-

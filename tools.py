@@ -1,28 +1,25 @@
+import json
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config.bot import bot
-from data import get_first_level_data, get_second_level_data, get_third_level_data
+from texts.reader import read_texts
 from keyboards import first_page_keyboard, last_page_keyboard, middle_pages_keyboard
+
+carousel_data = read_texts("texts/carousels_data.json")
 
 
 # This function draws a carousel for a given level
 async def carousel_render(callback_query: CallbackQuery, level_num: str):
     await hide_buttons(callback_query=callback_query)
 
-    levels_data = {
-        "first": "get_first_level_data",
-        "second": "get_second_level_data",
-        "third": "get_third_level_data",
-    }
-    func = globals()[levels_data[level_num]]
-    data = await func()
+    data = carousel_data[level_num]
     carousel_number = callback_query.data[-1]
     middle_list = [str(i) for i in range(2, len(data))]
     message_id = callback_query.message.message_id
 
     if callback_query.message.text not in data.values():
-        temp = await callback_query.message.answer(text="Загрузка...")
+        temp = await callback_query.message.answer(text=carousel_data["loading_text"])
         message_id = temp.message_id
 
     if carousel_number == "1":
@@ -94,6 +91,6 @@ async def add_user_answer(callback_query: CallbackQuery, current_answer: str):
     await bot.edit_message_text(
         chat_id=callback_query.message.chat.id,
         message_id=callback_query.message.message_id,
-        text=callback_query.message.text + f"\nВаш ответ: <b>{current_answer}</b>",
+        text=callback_query.message.text + f"{carousel_data['your_answer_text']} <b>{current_answer}</b>",
         parse_mode="HTML",
     )

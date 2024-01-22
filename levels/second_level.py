@@ -6,12 +6,13 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
-import data
 from keyboards import to_carousel_keyboard
 from models.users import get_user_data, increment_discount, update_user_data
-from tools import add_user_answer, carousel_render, hide_buttons
+from tools import add_user_answer, carousel_render, hide_buttons, read_texts
 
 second_level_router: Router = Router()
+second_level_texts = read_texts("texts/second_level_texts.json")
+LVL_2_USERS_ANS = {}
 
 
 # Second level
@@ -19,18 +20,15 @@ second_level_router: Router = Router()
 async def second_level_intro(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
-    introdution_text = (
-        "🌟 Уровень 2: Как можно увеличить продажи с помощью дизайна? "
-        "Бонус за прохождение уровня: скидка <b>+10%</b> или <b>+20%</b>."
-    )
+    introduction_text = second_level_texts["introduction_text"]
 
-    await callback_query.message.answer(text=introdution_text, parse_mode="HTML")
+    await callback_query.message.answer(text=introduction_text, parse_mode="HTML")
     await asyncio.sleep(1)
 
     next_button = await to_carousel_keyboard(level_num="second")
 
     await callback_query.message.answer(
-        text="Теперь давай перейдем к методам увеличения продаж с помощью графики:",
+        text=second_level_texts["next_text"],
         reply_markup=next_button.as_markup(resize_keyboard=True),
     )
 
@@ -49,13 +47,13 @@ async def second_level_continue(callback_query: CallbackQuery):
     buttons = InlineKeyboardBuilder()
     buttons.add(
         InlineKeyboardButton(
-            text="Получить задание", callback_data="second_level_task"
+            text=second_level_texts["take_task_button_text"], callback_data="second_level_task"
         ),
-        InlineKeyboardButton(text="Продолжить без бонусов", callback_data="bonus_task"),
+        InlineKeyboardButton(text=second_level_texts["without_bonus_button_text"], callback_data="bonus_task"),
     )
     buttons.adjust(1)
 
-    text = "Перед тем как идти дальше, давай закрепим информацию на примерах."
+    text = second_level_texts["continued_text"]
     await callback_query.message.answer(
         text=text, reply_markup=buttons.as_markup(resize_keyboard=True)
     )
@@ -66,14 +64,16 @@ async def second_level_continue(callback_query: CallbackQuery):
 async def second_level_task_info(callback_query: CallbackQuery):
     await hide_buttons(callback_query=callback_query)
 
-    user = await get_user_data(user_id=callback_query.message.chat.id)
-    if user:
-        await update_user_data(user_id=user.user_id, lvl_2_ans={})
+    user_id = callback_query.message.chat.id
+    LVL_2_USERS_ANS[user_id] = {}
 
-    task_text = "Задание: Сопоставь бренд и его описание."
+    task_text = second_level_texts["task_text"]
 
     button = InlineKeyboardBuilder()
-    button.add(InlineKeyboardButton(text="Вперед", callback_data="second_solution_"))
+    button.add(InlineKeyboardButton(
+        text=second_level_texts["forward_button_text"],
+        callback_data="second_solution_")
+    )
 
     await callback_query.message.answer(
         text=task_text, reply_markup=button.as_markup(reply_keyboard=True)
@@ -82,14 +82,13 @@ async def second_level_task_info(callback_query: CallbackQuery):
 
 @second_level_router.callback_query(F.data.startswith("second_solution_"))
 async def second_level_solution(callback_query: CallbackQuery):
-    correct_results = await data.get_second_level_answers()
-    user = await get_user_data(user_id=callback_query.message.chat.id)
-    user_answers = user.lvl_2_ans
+    correct_results = second_level_texts["second_level_answers"].copy()
+    user_id = callback_query.message.chat.id
 
     current_answer = callback_query.data.split("_")[2]
     if current_answer != "":
-        user_answers.update({current_answer: callback_query.message.text})
-        await update_user_data(user_id=user.user_id, lvl_2_ans=user_answers)
+        LVL_2_USERS_ANS[user_id].update({current_answer: callback_query.message.text})
+        user_answers = LVL_2_USERS_ANS.get(user_id, {})
 
         for key in user_answers.keys():
             correct_results.pop(key)
@@ -119,11 +118,12 @@ async def second_level_solution(callback_query: CallbackQuery):
 
 # Second level result checking
 async def second_level_check_result(callback_query: CallbackQuery):
-    origin_results = await data.get_second_level_answers()
-    user = await get_user_data(user_id=callback_query.message.chat.id)
+    origin_results = second_level_texts["second_level_answers"]
+    user_id = callback_query.message.chat.id
+    user_answers = LVL_2_USERS_ANS[user_id]
 
-    if user.lvl_2_ans == origin_results:
-        await increment_discount(user_id=callback_query.message.chat.id)
+    if user_answers == origin_results:
+        await increment_discount(user_id=user_id)
 
         text = (
             "Поздравляю! Ты ответил правильно, держи <b>10%</b> скидки 🥳. Ты можешь получить еще <b>10%</b>, если "
